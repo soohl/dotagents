@@ -1,0 +1,25 @@
+{
+  "tasks": [
+    {
+      "id": "01-python-repair",
+      "difficulty": "easy",
+      "title": "Repair a compact Python ledger library",
+      "grader": "grader.py",
+      "max_score": 6
+    },
+    {
+      "id": "02-data-reconciliation",
+      "difficulty": "medium",
+      "title": "Reconcile messy support data",
+      "grader": "grader.py",
+      "max_score": 12
+    },
+    {
+      "id": "03-dependency-planner",
+      "difficulty": "hard",
+      "title": "Implement a deterministic dependency-aware planner",
+      "grader": "grader.py",
+      "max_score": 20
+    }
+  ]
+}

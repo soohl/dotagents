@@ -1,0 +1,11 @@
+{
+  "backend": "omlx",
+  "pi": {
+    "compat": {
+      "supportsDeveloperRole": false,
+      "supportsReasoningEffort": false,
+      "supportsUsageInStreaming": true,
+      "maxTokensField": "max_tokens"
+    }
+  }
+}

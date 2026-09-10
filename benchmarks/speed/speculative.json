@@ -1,0 +1,14 @@
+[
+  {
+    "name": "technical",
+    "prompt": "Write a detailed technical explanation of how operating systems schedule concurrent processes, including examples and tradeoffs."
+  },
+  {
+    "name": "coding",
+    "prompt": "Implement a Python LRU cache using a dictionary and a doubly linked list. Explain the time complexity and include a short usage example."
+  },
+  {
+    "name": "analysis",
+    "prompt": "Compare optimistic and pessimistic concurrency control for a high-traffic database. Discuss failure modes, latency, throughput, and when to choose each."
+  }
+]

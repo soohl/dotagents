@@ -1,0 +1,13 @@
+case_id,team,status,updated_at
+ c-001 ,Alpha, OPEN ,2026-07-01T09:00:00Z
+C-002,Beta,pending,2026-07-01T10:00:00Z
+c-001,Alpha,closed,2026-07-03T12:00:00Z
+C-003,Alpha,closed,not-a-date
+C-004,Gamma,closed,2026-07-02T08:30:00Z
+C-005,Beta,waiting,2026-07-02T09:00:00Z
+C-006, Gamma ,closed,2026-07-02T10:00:00Z
+C-007,Beta,open,2026-07-04T10:00:00Z
+c-007,Beta,pending,2026-07-04T10:00:00Z
+,Alpha,open,2026-07-05T00:00:00Z
+C-008,,closed,2026-07-05T11:00:00Z
+C-009,Delta,closed,2026-07-05T12:00:00+00:00

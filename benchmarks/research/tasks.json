@@ -1,0 +1,37 @@
+{
+  "tasks": [
+    {
+      "id": "01-python-standards",
+      "difficulty": "easy",
+      "title": "Verify Python packaging standards",
+      "grader": "grader.py",
+      "max_score": 8,
+      "execution_requirements": {
+        "min_web_search_calls": 2,
+        "min_distinct_tools": 2
+      }
+    },
+    {
+      "id": "02-http-retry-policy",
+      "difficulty": "medium",
+      "title": "Synthesize an HTTP retry and redirect policy",
+      "grader": "grader.py",
+      "max_score": 14,
+      "execution_requirements": {
+        "min_web_search_calls": 3,
+        "min_distinct_tools": 2
+      }
+    },
+    {
+      "id": "03-xz-incident",
+      "difficulty": "hard",
+      "title": "Triangulate the XZ Utils supply-chain incident",
+      "grader": "grader.py",
+      "max_score": 20,
+      "execution_requirements": {
+        "min_web_search_calls": 4,
+        "min_distinct_tools": 3
+      }
+    }
+  ]
+}

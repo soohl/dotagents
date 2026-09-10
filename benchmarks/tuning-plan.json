@@ -1,0 +1,291 @@
+{
+  "runtimes": {
+    "baseline": {
+      "source": "backends/omlx",
+      "revision": "1d7826185c5b5b69b38b27cbe57d7597b7551fd7",
+      "python": "/opt/homebrew/Cellar/omlx/0.6.4/libexec/bin/python",
+      "source_runtime": false
+    },
+    "main": {
+      "source": ".local/backends/omlx-main-94530d8d",
+      "revision": "94530d8d49541ede9e99ef04a4431ee4953117a6",
+      "python": ".local/venvs/omlx-main/bin/python"
+    },
+    "glm-pr3384": {
+      "source": ".local/backends/omlx-glm-pr3384",
+      "revision": "2e00a0ae8bc4b1e18027f2156d40a0ddee4c9e6e",
+      "python": ".local/venvs/omlx-main/bin/python"
+    },
+    "deepseek-pr3059": {
+      "source": ".local/backends/omlx-deepseek-pr3059",
+      "revision": "304bb4471bf4911e70e20283b07c08556843dbfa",
+      "python": ".local/venvs/omlx-ane/bin/python"
+    },
+    "ds4-qwen": {
+      "source": ".local/backends/ds4-qwen-pr991",
+      "revision": "6c1e83672650e1bae9fe460a05c7f131d93f055e"
+    }
+  },
+  "candidates": [
+    {
+      "name": "glm-baseline",
+      "model": "glm",
+      "runtime": "baseline",
+      "backend": "omlx",
+      "settings": {},
+      "env": {}
+    },
+    {
+      "name": "glm-main",
+      "model": "glm",
+      "runtime": "main",
+      "backend": "omlx",
+      "settings": {},
+      "env": {}
+    },
+    {
+      "name": "glm-pr-auto",
+      "model": "glm",
+      "runtime": "glm-pr3384",
+      "backend": "omlx",
+      "settings": {},
+      "env": {}
+    },
+    {
+      "name": "glm-chunk-256",
+      "model": "glm",
+      "runtime": "glm-pr3384",
+      "backend": "omlx",
+      "settings": {
+        "prefill_step_size": 256
+      },
+      "env": {}
+    },
+    {
+      "name": "glm-chunk-512",
+      "model": "glm",
+      "runtime": "glm-pr3384",
+      "backend": "omlx",
+      "settings": {
+        "prefill_step_size": 512
+      },
+      "env": {}
+    },
+    {
+      "name": "glm-chunk-1024",
+      "model": "glm",
+      "runtime": "glm-pr3384",
+      "backend": "omlx",
+      "settings": {
+        "prefill_step_size": 1024
+      },
+      "env": {}
+    },
+    {
+      "name": "glm-chunk-2048",
+      "model": "glm",
+      "runtime": "glm-pr3384",
+      "backend": "omlx",
+      "settings": {
+        "prefill_step_size": 2048
+      },
+      "env": {}
+    },
+    {
+      "name": "qwen-baseline",
+      "model": "qwen",
+      "runtime": "baseline",
+      "backend": "omlx",
+      "settings": {},
+      "env": {}
+    },
+    {
+      "name": "qwen-main",
+      "model": "qwen",
+      "runtime": "main",
+      "backend": "omlx",
+      "settings": {},
+      "env": {}
+    },
+    {
+      "name": "qwen-gpu-only",
+      "model": "qwen",
+      "runtime": "baseline",
+      "backend": "omlx",
+      "settings": {
+        "qwen35_ane_prefill_enabled": false
+      },
+      "env": {}
+    },
+    {
+      "name": "qwen-gdn-0.25",
+      "model": "qwen",
+      "runtime": "baseline",
+      "backend": "omlx",
+      "settings": {
+        "qwen35_ane_prefill_gdn_fraction": 0.25
+      },
+      "env": {
+        "COOK_OMLX_GDN_ONLY": "1"
+      }
+    },
+    {
+      "name": "qwen-gdn-0.375",
+      "model": "qwen",
+      "runtime": "baseline",
+      "backend": "omlx",
+      "settings": {
+        "qwen35_ane_prefill_gdn_fraction": 0.375
+      },
+      "env": {
+        "COOK_OMLX_GDN_ONLY": "1"
+      }
+    },
+    {
+      "name": "qwen-gdn-0.5",
+      "model": "qwen",
+      "runtime": "baseline",
+      "backend": "omlx",
+      "settings": {
+        "qwen35_ane_prefill_gdn_fraction": 0.5
+      },
+      "env": {
+        "COOK_OMLX_GDN_ONLY": "1"
+      }
+    },
+    {
+      "name": "qwen-ane-tile4096",
+      "model": "qwen",
+      "runtime": "baseline",
+      "backend": "omlx",
+      "settings": {
+        "qwen35_ane_prefill_sequence_length": 4096,
+        "qwen35_ane_prefill_tail_padding_min_tokens": 0
+      },
+      "env": {}
+    },
+    {
+      "name": "qwen-ds4-chunk-2048",
+      "model": "qwen",
+      "runtime": "ds4-qwen",
+      "backend": "ds4",
+      "settings": {},
+      "env": {
+        "LLM_PREFILL_CHUNK": "2048"
+      }
+    },
+    {
+      "name": "qwen-ds4-chunk-4096",
+      "model": "qwen",
+      "runtime": "ds4-qwen",
+      "backend": "ds4",
+      "settings": {},
+      "env": {
+        "LLM_PREFILL_CHUNK": "4096"
+      }
+    },
+    {
+      "name": "qwen-ds4-chunk-8192",
+      "model": "qwen",
+      "runtime": "ds4-qwen",
+      "backend": "ds4",
+      "settings": {},
+      "env": {
+        "LLM_PREFILL_CHUNK": "8192"
+      }
+    },
+    {
+      "name": "qwen-ds4-chunk-16384",
+      "model": "qwen",
+      "runtime": "ds4-qwen",
+      "backend": "ds4",
+      "settings": {},
+      "env": {
+        "LLM_PREFILL_CHUNK": "16384"
+      }
+    },
+    {
+      "name": "deepseek-baseline",
+      "model": "deepseek-0731",
+      "runtime": "baseline",
+      "backend": "omlx",
+      "settings": {},
+      "env": {}
+    },
+    {
+      "name": "deepseek-main",
+      "model": "deepseek-0731",
+      "runtime": "main",
+      "backend": "omlx",
+      "settings": {},
+      "env": {}
+    },
+    {
+      "name": "deepseek-pr-gpu",
+      "model": "deepseek-0731",
+      "runtime": "deepseek-pr3059",
+      "backend": "omlx",
+      "settings": {
+        "deepseek_ane_prefill_enabled": false
+      },
+      "env": {}
+    },
+    {
+      "name": "deepseek-ane",
+      "model": "deepseek-0731",
+      "runtime": "deepseek-pr3059",
+      "backend": "omlx",
+      "settings": {
+        "deepseek_ane_prefill_enabled": true,
+        "deepseek_ane_prefill_sequence_length": 4096,
+        "deepseek_ane_prefill_down_enabled": true,
+        "deepseek_ane_prefill_down_fraction": 0.5,
+        "deepseek_ane_prefill_wo_a_enabled": false,
+        "deepseek_ane_prefill_wo_a_fraction": 0.5,
+        "deepseek_ane_prefill_cpu_enabled": false,
+        "deepseek_ane_prefill_cpu_fraction": 0.125,
+        "deepseek_ane_prefill_cpu_threads": 12,
+        "deepseek_ane_prefill_cpu_shared_resource": true
+      },
+      "env": {}
+    },
+    {
+      "name": "deepseek-ane-cpu",
+      "model": "deepseek-0731",
+      "runtime": "deepseek-pr3059",
+      "backend": "omlx",
+      "settings": {
+        "deepseek_ane_prefill_enabled": true,
+        "deepseek_ane_prefill_sequence_length": 4096,
+        "deepseek_ane_prefill_down_enabled": true,
+        "deepseek_ane_prefill_down_fraction": 0.5,
+        "deepseek_ane_prefill_wo_a_enabled": false,
+        "deepseek_ane_prefill_wo_a_fraction": 0.5,
+        "deepseek_ane_prefill_cpu_enabled": true,
+        "deepseek_ane_prefill_cpu_fraction": 0.125,
+        "deepseek_ane_prefill_cpu_threads": 12,
+        "deepseek_ane_prefill_cpu_shared_resource": true
+      },
+      "env": {}
+    },
+    {
+      "name": "deepseek-ane-full",
+      "model": "deepseek-0731",
+      "runtime": "deepseek-pr3059",
+      "backend": "omlx",
+      "settings": {
+        "deepseek_ane_prefill_enabled": true,
+        "deepseek_ane_prefill_sequence_length": 4096,
+        "deepseek_ane_prefill_down_enabled": true,
+        "deepseek_ane_prefill_down_fraction": 0.5,
+        "deepseek_ane_prefill_wo_a_enabled": true,
+        "deepseek_ane_prefill_wo_a_fraction": 0.5,
+        "deepseek_ane_prefill_cpu_enabled": true,
+        "deepseek_ane_prefill_cpu_fraction": 0.125,
+        "deepseek_ane_prefill_cpu_threads": 12,
+        "deepseek_ane_prefill_cpu_shared_resource": true
+      },
+      "env": {}
+    }
+  ]
+}

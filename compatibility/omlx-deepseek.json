@@ -1,0 +1,5 @@
+{
+  "extends": "omlx-openai",
+  "pi": {"compat": {"supportsReasoningEffort": true}},
+  "benchmark": {"reasoning": {"mode": "native-strong", "piThinking": "high", "control": "effort", "nativeValue": "high"}}
+}

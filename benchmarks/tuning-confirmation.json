@@ -1,0 +1,65 @@
+{
+  "runtimes": {
+    "baseline": {
+      "source": "backends/omlx",
+      "revision": "1d7826185c5b5b69b38b27cbe57d7597b7551fd7",
+      "python": "/opt/homebrew/Cellar/omlx/0.6.4/libexec/bin/python",
+      "source_runtime": false
+    },
+    "main": {
+      "source": ".local/backends/omlx-main-94530d8d",
+      "revision": "94530d8d49541ede9e99ef04a4431ee4953117a6",
+      "python": ".local/venvs/omlx-main/bin/python"
+    },
+    "glm-pr3384": {
+      "source": ".local/backends/omlx-glm-pr3384",
+      "revision": "2e00a0ae8bc4b1e18027f2156d40a0ddee4c9e6e",
+      "python": ".local/venvs/omlx-main/bin/python"
+    },
+    "deepseek-pr3059": {
+      "source": ".local/backends/omlx-deepseek-pr3059",
+      "revision": "304bb4471bf4911e70e20283b07c08556843dbfa",
+      "python": ".local/venvs/omlx-ane/bin/python"
+    },
+    "ds4-qwen": {
+      "source": ".local/backends/ds4-qwen-pr991",
+      "revision": "6c1e83672650e1bae9fe460a05c7f131d93f055e"
+    }
+  },
+  "candidates": [
+    {
+      "name": "deepseek-gpu-4096-profile",
+      "model": "deepseek-0731",
+      "runtime": "deepseek-pr3059",
+      "backend": "omlx",
+      "settings": {
+        "deepseek_ane_prefill_enabled": false
+      },
+      "env": {
+        "COOK_OMLX_PREFILL_STEP": "4096",
+        "COOK_OMLX_PROFILE_ANE": "1"
+      }
+    },
+    {
+      "name": "deepseek-ane-profile",
+      "model": "deepseek-0731",
+      "runtime": "deepseek-pr3059",
+      "backend": "omlx",
+      "settings": {
+        "deepseek_ane_prefill_enabled": true,
+        "deepseek_ane_prefill_sequence_length": 4096,
+        "deepseek_ane_prefill_down_enabled": true,
+        "deepseek_ane_prefill_down_fraction": 0.5,
+        "deepseek_ane_prefill_wo_a_enabled": false,
+        "deepseek_ane_prefill_wo_a_fraction": 0.5,
+        "deepseek_ane_prefill_cpu_enabled": false,
+        "deepseek_ane_prefill_cpu_fraction": 0.125,
+        "deepseek_ane_prefill_cpu_threads": 12,
+        "deepseek_ane_prefill_cpu_shared_resource": true
+      },
+      "env": {
+        "COOK_OMLX_PROFILE_ANE": "1"
+      }
+    }
+  ]
+}

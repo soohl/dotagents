@@ -1,0 +1,28 @@
+{
+  "backend": "ds4",
+  "pi": {
+    "compat": {
+      "supportsDeveloperRole": false,
+      "supportsReasoningEffort": true,
+      "supportsUsageInStreaming": true,
+      "maxTokensField": "max_completion_tokens"
+    },
+    "thinkingLevelMap": {
+      "off": "none",
+      "minimal": null,
+      "low": null,
+      "medium": null,
+      "high": "high",
+      "xhigh": "xhigh",
+      "max": "max"
+    }
+  },
+  "benchmark": {
+    "reasoning": {
+      "mode": "native-strong",
+      "piThinking": "xhigh",
+      "control": "effort",
+      "nativeValue": "xhigh"
+    }
+  }
+}

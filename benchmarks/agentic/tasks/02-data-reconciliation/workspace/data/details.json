@@ -1,0 +1,14 @@
+[
+  {"case_id": "C-001", "minutes": "35", "satisfaction": 5},
+  {"case_id": " c-002 ", "minutes": 20, "satisfaction": 4},
+  {"case_id": "C-003", "minutes": 15, "satisfaction": 3},
+  {"case_id": "C-004", "minutes": -2, "satisfaction": 2},
+  {"case_id": "C-005", "minutes": 50, "satisfaction": 6},
+  {"case_id": "C-006", "minutes": 45, "satisfaction": null},
+  {"case_id": "C-007", "minutes": 10, "satisfaction": 3},
+  {"case_id": "c-007", "minutes": 12, "satisfaction": 4},
+  {"case_id": "C-008", "minutes": true, "satisfaction": 5},
+  {"case_id": "C-009", "minutes": "30", "satisfaction": "5"},
+  {"case_id": "C-010", "minutes": 7, "satisfaction": 4},
+  {"case_id": "", "minutes": 8, "satisfaction": 4}
+]

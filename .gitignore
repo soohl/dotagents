@@ -1,0 +1,43 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.cache/
+
+# Model weights are local artifacts. model.conf pins downloads;
+# retain the storage directories with .gitkeep files.
+**/gguf/*
+!**/gguf/.gitkeep
+**/mlx/*
+!**/mlx/.gitkeep
+
+# Local server runtime state.
+**/.runtime/
+
+# Ignore unregistered backend scratch trees; pinned submodules are allowed below.
+/backends/*
+!/backends/.gitkeep
+!/backends/config/
+!/backends/config/*.conf
+!/backends/scripts/
+!/backends/scripts/*.sh
+
+# Local experiments and private data.
+.venv/
+.local/
+/results/
+.env
+.env.*
+config.yaml
+credentials/
+sessions/
+memories/
+*.log
+.pytest_cache/
+.ruff_cache/
+
+# Backend sources are pinned Git submodules; their own rules ignore builds.
+!/backends/ds4
+!/backends/omlx
+!/backends/upstream-candidates.json
+!/backends/runtime-baseline.json
+!/backends/tuning-runtime-inventory.json

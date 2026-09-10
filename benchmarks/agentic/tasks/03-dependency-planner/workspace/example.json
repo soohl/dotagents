@@ -1,0 +1,9 @@
+{
+  "tasks": [
+    {"id": "fetch", "duration": 1, "priority": 1},
+    {"id": "generate", "duration": 2, "depends_on": ["fetch"]},
+    {"id": "lint", "duration": 1, "depends_on": ["fetch"], "priority": 3},
+    {"id": "compile", "duration": 3, "depends_on": ["generate"]},
+    {"id": "package", "duration": 1, "depends_on": ["compile", "lint"]}
+  ]
+}
