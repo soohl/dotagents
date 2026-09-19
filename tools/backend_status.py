@@ -23,7 +23,8 @@ def main():
         print('  candidate:', pin['candidate'], '(not locally qualified)')
     qwen = candidates['ds4'].get('qwen_experiment')
     if qwen:
-        print('DS4 Qwen experiment (unmerged):', qwen['revision'])
+        state = 'PR merged; local checkout remains pinned' if qwen.get('merged') else 'unmerged'
+        print(f'DS4 Qwen experiment ({state}):', qwen['revision'])
         source = ROOT / qwen['source_subdir']
         if (source / '.git').exists():
             print('  actual HEAD:', subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip())

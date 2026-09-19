@@ -105,7 +105,7 @@ case "${1:-}" in
         ;;
     benchmark)
         [ -z "${DS4_PLE_FILE:-}" ] || {
-            printf 'Use ./run.sh prefill --models qwen --backends ds4 omlx for Qwen.\n' >&2
+            printf 'Use ./run.sh prefill --models qwen --backends ds4 for Qwen.\n' >&2
             exit 2
         }
         variant=$2

@@ -49,6 +49,23 @@ class LauncherTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolver.validate(qwen, 'ds4')
 
+    def test_disabled_backend_rejected_before_operational_actions(self):
+        for args in (
+            ['serve', 'qwen3.8-flash-next'],
+            ['setup', 'glm-5.3-flash'],
+            ['download', 'glm-5.3-flash', 'oq4e'],
+            ['benchmark', 'speed', 'deepseek-v4-flash-0731-mlx'],
+            ['benchmark', 'agentic', 'glm-5.3-flash'],
+        ):
+            with self.subTest(args=args):
+                result = subprocess.run([str(ROOT / 'run.sh'), *args],
+                                        text=True, capture_output=True)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('Backend omlx is disabled', result.stderr)
+        prefill = module('disabled_prefill_test', ROOT / 'benchmarks/prefill.py')
+        with self.assertRaisesRegex(SystemExit, 'Backend omlx is disabled'):
+            prefill.preflight(['omlx'], 'qwen')
+
     def test_serve_routes_settings_without_real_backend(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -219,6 +236,8 @@ class PrefillTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             profile = root / 'models' / 'test-model'
+            (root / 'backends/config').mkdir(parents=True)
+            (root / 'backends/config/ds4.conf').write_text('BACKEND_ENABLED=1\n')
             (profile / 'gguf' / 'weights').mkdir(parents=True)
             (profile / 'model.conf').write_text('DEFAULT_VARIANT=q4\nMODEL_STORAGE_DIR=gguf\nDOWNLOAD_Q4_DIR=weights\nDOWNLOAD_Q4_MANIFEST=manifest\n')
             (profile / 'manifest').write_text('abc 4 shard.gguf\n')
@@ -232,14 +251,14 @@ class PrefillTests(unittest.TestCase):
 
     def test_primary_campaign_uses_only_supported_backends(self):
         prefill = module('prefill_defaults_test', ROOT / 'benchmarks/prefill.py')
-        self.assertEqual(set(prefill.default_backends('qwen')), {'omlx', 'ds4'})
-        self.assertEqual(set(prefill.default_backends('deepseek-0731')), {'ds4', 'omlx'})
+        self.assertEqual(prefill.default_backends('qwen'), ['ds4'])
+        self.assertEqual(prefill.default_backends('deepseek-0731'), ['ds4'])
         campaign = module('campaign_defaults_test', ROOT / 'tools/prefill_campaign.py')
         paths = [str(path) for path, _, _ in campaign.artifacts()]
         self.assertTrue(paths)
         self.assertEqual({backend for pair in prefill.MATRIX.values() for backend in pair}, {'omlx', 'ds4'})
         self.assertTrue(any('GLM-5.3-Flash-DS4' in path for path in paths))
-        self.assertTrue(any('DeepSeek-V4-Flash-0731-MLX' in path for path in paths))
+        self.assertFalse(any('DeepSeek-V4-Flash-0731-MLX' in path for path in paths))
 
     def test_qwen_experiment_pin_and_required_sidecar(self):
         prefill = module('qwen_pin_test', ROOT / 'benchmarks/prefill.py')
@@ -305,7 +324,42 @@ class PrefillTests(unittest.TestCase):
         self.assertEqual(result['ttft_seconds'], 2)
         self.assertEqual(result['effective_input_tokens_per_ttft_second'], 47.5)
         self.assertEqual(result['completion_tokens'], 1)
+        self.assertIsNone(result['effective_decode_tokens_per_second'])
         self.assertEqual(result['output'], 'hello')
+
+    def test_stream_measurement_reports_decode_rate_after_first_token(self):
+        import io
+        prefill = module('prefill_decode_test', ROOT / 'benchmarks/prefill.py')
+        events = [{'choices': [{'delta': {'content': token}}]}
+                  for token in ('one', 'two', 'three')]
+        events.append({'choices': [], 'usage': {'prompt_tokens': 40,
+                                                'completion_tokens': 3}})
+        stream = io.BytesIO(('\n'.join('data: ' + json.dumps(event)
+                                       for event in events) +
+                             '\ndata: [DONE]\n').encode())
+        with patch.object(prefill.urllib.request, 'urlopen', return_value=stream), \
+             patch.object(prefill.time, 'monotonic', side_effect=[10, 11, 13]):
+            result = prefill.completion('http://localhost', 'ds4', 'prompt', 3)
+        self.assertEqual(result['decode_seconds'], 2)
+        self.assertEqual(result['effective_decode_tokens_per_second'], 1)
+
+    def test_inference_report_separates_prefill_and_decode(self):
+        prefill = module('prefill_report_test', ROOT / 'benchmarks/prefill.py')
+        common = {'model': 'glm', 'backend': 'omlx', 'source_chars': 32768,
+                  'prompt_tokens': 100, 'ttft_seconds': 2,
+                  'effective_input_tokens_per_ttft_second': 50,
+                  'cached_tokens': 0, 'completion_tokens': 8,
+                  'effective_decode_tokens_per_second': 4}
+        rows = [dict(common, phase='prefill'),
+                dict(common, phase='decode', completion_tokens=128,
+                     effective_decode_tokens_per_second=20)]
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / 'REPORT.md'
+            prefill.write_report(Path(directory), rows)
+            text = report.read_text()
+        self.assertIn('## Cold prefill / TTFT', text)
+        self.assertIn('## Sustained decode', text)
+        self.assertIn('| glm | omlx | 32768 | 1 | 128 | 2.000 | 20.00 | 0 |', text)
 
 
 if __name__ == '__main__':

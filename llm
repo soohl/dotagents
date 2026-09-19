@@ -121,15 +121,17 @@ variant_display() {
 }
 
 list_models() {
-    printf '%-24s %-10s %-24s %s\n' \
-        MODEL BACKEND VARIANTS CONTEXT
+    printf '%-24s %-10s %-24s %-8s %s\n' \
+        MODEL BACKEND VARIANTS CONTEXT STATUS
     while IFS= read -r config; do
         load_model_config "${config%/model.conf}"
         context_key=$(printf '%s_CONTEXT' "$BACKEND" | tr '[:lower:]' '[:upper:]')
         result=${!context_key}
-        printf '%-24s %-10s %-24s %s\n' \
+        status=enabled
+        [ "${BACKEND_ENABLED:-1}" = 1 ] || status=disabled
+        printf '%-24s %-10s %-24s %-8s %s\n' \
             "$MODEL_ID" "$BACKEND" \
-            "$(variant_display)" "$result"
+            "$(variant_display)" "$result" "$status"
     done < <(model_configs)
 }
 
@@ -245,6 +247,7 @@ list_downloaded() {
             if [ "$storage" = "$configured_storage" ] &&
                configured_artifact_ready; then
                 role=ready
+                [ "${BACKEND_ENABLED:-1}" = 1 ] || role=disabled
             else
                 role=unused
             fi
@@ -678,6 +681,10 @@ parse_run_args() {
 select_model() {
     MODEL_DIR=$(resolve_model_dir "$1")
     load_model_config "$MODEL_DIR"
+    [ "${BACKEND_ENABLED:-1}" = 1 ] || {
+        printf 'Backend %s is disabled in backends/config/%s.conf. Use a DS4 model from ./run.sh list.\n' "$BACKEND" "$BACKEND" >&2
+        exit 2
+    }
 }
 
 command=${1:-help}

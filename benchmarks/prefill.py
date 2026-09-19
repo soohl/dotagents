@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Model/backend prefill/TTFT experiment; start and stop only owned servers."""
+"""Model/backend prefill/TTFT and optional decode experiment; stop only owned servers."""
 import argparse
 import datetime as dt
 import hashlib
@@ -26,7 +26,12 @@ PROFILES = MATRIX['glm']
 
 
 def default_backends(model):
-    return [backend for backend in MATRIX[model] if backend in PRIMARY_BACKENDS]
+    return [backend for backend in MATRIX[model]
+            if backend in PRIMARY_BACKENDS and backend_enabled(backend)]
+
+
+def backend_enabled(backend):
+    return config(ROOT / 'backends/config' / (backend + '.conf')).get('BACKEND_ENABLED', '1') == '1'
 
 
 def config(path):
@@ -50,6 +55,8 @@ def source_directory(backend, conf):
 def preflight(backends, model='glm'):
     configs = {}
     for backend in backends:
+        if not backend_enabled(backend):
+            raise SystemExit(f'Backend {backend} is disabled in backends/config/{backend}.conf')
         model_dir = ROOT / 'models' / MATRIX[model][backend]
         conf = config(model_dir / 'model.conf')
         key = conf['DEFAULT_VARIANT'].upper().replace('-', '_')
@@ -123,10 +130,16 @@ def completion(url, backend, text, generated, api_model='glm-5.3-flash'):
     cached = usage.get('prompt_tokens_details', {}).get('cached_tokens',
                        usage.get('cached_tokens', 0))
     ttft = first - start
+    decode_seconds = elapsed - ttft
+    decode_tokens = max(usage['completion_tokens'] - 1, 0)
+    decode_rate = (decode_tokens / decode_seconds
+                   if decode_tokens and decode_seconds > 0 else None)
     return {'ttft_seconds': ttft, 'elapsed_seconds': elapsed, 'usage': usage,
             'cached_tokens': cached, 'prompt_tokens': usage['prompt_tokens'],
             'completion_tokens': usage['completion_tokens'],
             'effective_input_tokens_per_ttft_second': (usage['prompt_tokens'] - cached) / ttft,
+            'decode_seconds': decode_seconds,
+            'effective_decode_tokens_per_second': decode_rate,
             'native_timings': native_timings, 'output': ''.join(output)}
 
 
@@ -160,19 +173,36 @@ def stop(process):
 
 
 def write_report(directory, rows):
-    lines = ['# Prefill measurements by model and backend', '',
+    prefill_rows = [row for row in rows if row.get('phase', 'prefill') == 'prefill']
+    decode_rows = [row for row in rows if row.get('phase') == 'decode']
+    lines = ['# Inference measurements by model and backend', '',
              'Same user prompts; compare backend results within a model. Artifact precision/templates differ.',
              'TTFT includes request/template overhead and the first decode step.',
              'Input tokens / TTFT is an end-to-end rate, not native kernel prefill speed.',
+             'Decode rate is approximate: measured after the first visible stream chunk, which can bundle tokens; includes API/stream overhead.',
              'Only fresh user prefixes are measured; cached template tokens are reported.', '',
+             '## Cold prefill / TTFT', '',
              '| Model | Backend | Source characters | Trials | Median actual tokens | Median TTFT s | Median input/TTFT tok/s | Max cached tokens |',
              '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |']
-    for model, backend, chars in sorted({(r.get('model', 'glm'), r['backend'], r['source_chars']) for r in rows}):
-        group = [r for r in rows if r.get('model', 'glm') == model and r['backend'] == backend and r['source_chars'] == chars]
+    for model, backend, chars in sorted({(r.get('model', 'glm'), r['backend'], r['source_chars']) for r in prefill_rows}):
+        group = [r for r in prefill_rows if r.get('model', 'glm') == model and r['backend'] == backend and r['source_chars'] == chars]
         med = lambda key: statistics.median(r[key] for r in group)
         lines.append(f"| {model} | {backend} | {chars} | {len(group)} | {med('prompt_tokens'):.0f} | "
                      f"{med('ttft_seconds'):.3f} | {med('effective_input_tokens_per_ttft_second'):.2f} | "
                      f"{max(r['cached_tokens'] for r in group)} |")
+    if decode_rows:
+        lines.extend(['', '## Sustained decode', '',
+                      '| Model | Backend | Source characters | Trials | Median generated tokens | Median TTFT s | Median decode tok/s | Max cached tokens |',
+                      '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |'])
+        for model, backend, chars in sorted({(r.get('model', 'glm'), r['backend'], r['source_chars']) for r in decode_rows}):
+            group = [r for r in decode_rows if r.get('model', 'glm') == model and r['backend'] == backend and r['source_chars'] == chars]
+            rates = [r['effective_decode_tokens_per_second'] for r in group
+                     if r['effective_decode_tokens_per_second'] is not None]
+            rate = f'{statistics.median(rates):.2f}' if rates else 'n/a'
+            lines.append(f"| {model} | {backend} | {chars} | {len(group)} | "
+                         f"{statistics.median(r['completion_tokens'] for r in group):.0f} | "
+                         f"{statistics.median(r['ttft_seconds'] for r in group):.3f} | {rate} | "
+                         f"{max(r['cached_tokens'] for r in group)} |")
     (directory / 'REPORT.md').write_text('\n'.join(lines) + '\n')
 
 
@@ -186,12 +216,19 @@ def main():
     parser.add_argument('--chars', nargs='+', type=int, default=[32768, 131072])
     parser.add_argument('--trials', type=int, default=3)
     parser.add_argument('--generated', type=int, default=8)
+    parser.add_argument('--decode-generated', type=int, default=0,
+                        help='also run a fresh-prefix sustained-decode request per loaded backend')
+    parser.add_argument('--decode-chars', type=int, default=32768)
     parser.add_argument('--context', type=int, default=65536)
     args = parser.parse_args()
-    if not 2 <= args.context <= 65536 or not 0 < args.generated < args.context:
-        parser.error('context must be 2..65536 tokens with room for the requested output')
+    if (not 2 <= args.context <= 65536 or not 0 < args.generated < args.context or
+            not 0 <= args.decode_generated < args.context):
+        parser.error('context must be 2..65536 tokens with room for each requested output')
     source = (ROOT / 'benchmarks/speed/promessi-sposi.txt').read_text()
-    if args.trials < 1 or args.generated < 1 or any(c < 1 or c > len(source) for c in args.chars):
+    requested_chars = list(args.chars)
+    if args.decode_generated:
+        requested_chars.append(args.decode_chars)
+    if args.trials < 1 or args.generated < 1 or any(c < 1 or c > len(source) for c in requested_chars):
         parser.error('invalid trial/output count or source length')
     configs = {}
     skipped = []
@@ -236,8 +273,9 @@ def main():
                     sock.bind(('127.0.0.1', 0))
                     port = sock.getsockname()[1]
                 url = f'http://127.0.0.1:{port}'
+                max_tokens = max(args.generated, args.decode_generated, 16)
                 env = dict(os.environ, LLM_HOST='127.0.0.1', LLM_PORT=str(port),
-                           LLM_CTX=str(args.context), LLM_MAX_TOKENS=str(args.generated),
+                           LLM_CTX=str(args.context), LLM_MAX_TOKENS=str(max_tokens),
                            LLM_RUNTIME_ROOT=runtime, LLM_DISABLE_PROMPT_CACHE='1',
                            LLM_SPECULATIVE='off')
                 process = subprocess.Popen([str(ROOT / 'run.sh'), 'serve', configs[key]['MODEL_ID']],
@@ -251,12 +289,31 @@ def main():
                         text = prompt(source, chars, trial, args.prompt_seed)
                         result = completion(url, backend, text, args.generated, api_model)
                         result.update(model=model, backend=backend, trial=trial + 1, source_chars=chars,
+                                      phase='prefill', requested_tokens=args.generated,
                                       prompt_sha256=hashlib.sha256(text.encode()).hexdigest())
                         rows.append(result)
                         with (directory / 'results.jsonl').open('a') as handle:
                             handle.write(json.dumps(result) + '\n')
                         write_report(directory, rows)
                         print(f"{model}/{backend}: {result['prompt_tokens']} tokens, TTFT {result['ttft_seconds']:.3f}s, "
+                              f"cached {result['cached_tokens']}", flush=True)
+                    if args.decode_generated:
+                        text = prompt(source, args.decode_chars, trial,
+                                      args.prompt_seed + ':decode')
+                        result = completion(url, backend, text,
+                                            args.decode_generated, api_model)
+                        result.update(model=model, backend=backend, trial=trial + 1,
+                                      source_chars=args.decode_chars, phase='decode',
+                                      requested_tokens=args.decode_generated,
+                                      prompt_sha256=hashlib.sha256(text.encode()).hexdigest())
+                        rows.append(result)
+                        with (directory / 'results.jsonl').open('a') as handle:
+                            handle.write(json.dumps(result) + '\n')
+                        write_report(directory, rows)
+                        rate = result['effective_decode_tokens_per_second']
+                        shown_rate = f'{rate:.2f}' if rate is not None else 'n/a'
+                        print(f"{model}/{backend}: {result['completion_tokens']} decode tokens, "
+                              f"{shown_rate} tok/s, TTFT {result['ttft_seconds']:.3f}s, "
                               f"cached {result['cached_tokens']}", flush=True)
                 except (RuntimeError, OSError, ValueError, TimeoutError) as error:
                     with (directory / 'failures.jsonl').open('a') as handle:

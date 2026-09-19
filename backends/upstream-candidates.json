@@ -9,7 +9,8 @@
     "qwen_experiment": {
       "pull_request": "https://github.com/antirez/ds4/pull/991",
       "revision": "6c1e83672650e1bae9fe460a05c7f131d93f055e",
-      "merged": false,
+      "merged": true,
+      "status_checked": "2026-09-19",
       "source_subdir": ".local/backends/ds4-qwen-pr991",
       "model_profile": "Qwen3.8-Flash-Next-DS4",
       "qualified_on_this_host": false
@@ -19,8 +20,13 @@
     "repository": "https://github.com/jundot/omlx.git",
     "baseline": "1d7826185c5b5b69b38b27cbe57d7597b7551fd7",
     "latest_release": "v0.6.4",
-    "candidate": "94530d8d49541ede9e99ef04a4431ee4953117a6",
-    "candidate_date": "2026-09-08",
-    "qualified_on_this_host": false
+    "candidate": "14194fe74bab38b89c144bd89656fbedca641d14",
+    "candidate_date": "2026-09-18",
+    "qualified_on_this_host": false,
+    "checked": "2026-09-18",
+    "candidate_version": "0.7.0.dev4",
+    "source_subdir": ".local/backends/omlx-main-14194fe7",
+    "runtime_subdir": ".local/venvs/omlx-14194fe7-py312",
+    "serving_notes": "GPU prefill; current ANE validation rejects qwen4_exp metadata. Baseline profile retained."
   }
 }

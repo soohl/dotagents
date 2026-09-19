@@ -105,7 +105,8 @@ if "OMLX_QWEN35_ANE_PREFILL_ENABLED" in os.environ:
     settings.update(
         {
             "qwen35_ane_prefill_enabled": env_bool(
-                "OMLX_QWEN35_ANE_PREFILL_ENABLED", "false"
+                "LLM_ANE_PREFILL_ENABLED",
+                os.environ.get("OMLX_QWEN35_ANE_PREFILL_ENABLED", "false"),
             ),
             "qwen35_ane_prefill_sequence_length": int(
                 os.environ.get("OMLX_QWEN35_ANE_PREFILL_SEQUENCE_LENGTH", "2048")
