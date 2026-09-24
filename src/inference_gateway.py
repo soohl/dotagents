@@ -1,5 +1,6 @@
 """One-owner DS4 gateway. Start the selected native model on demand."""
 import fcntl
+from http.client import HTTPException
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -14,7 +15,7 @@ import time
 import urllib.error
 import urllib.request
 
-import cook_studio
+import launcher
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND_PORT = 8100
@@ -77,13 +78,13 @@ class ModelGateway:
     def __init__(self, initial):
         if platform.system() != 'Darwin':
             raise ValueError('Native DS4 Metal requires macOS.')
-        self.models = cook_studio.profiles()['models']
+        self.models = launcher.profiles()['models']
         if initial not in self.models:
             raise ValueError('Select qwen or deepseek.')
         for key, model in self.models.items():
-            cook_studio.check_revision(ROOT / model['source'], model['revision'])
-            for artifact in cook_studio.required_artifacts(model):
-                cook_studio.check_artifact(artifact)
+            launcher.check_revision(ROOT / model['source'], model['revision'])
+            for artifact in launcher.required_artifacts(model):
+                launcher.check_artifact(artifact)
         os.umask(0o077)
         self.state = ROOT / '.local/inference-gateway'
         self.state.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -93,7 +94,7 @@ class ModelGateway:
         self.lock_file = lock_path.open('a+')
         try:
             fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            cook_studio.ensure_idle([BACKEND_PORT, *(m['port'] for m in self.models.values())])
+            launcher.ensure_idle([BACKEND_PORT, *(m['port'] for m in self.models.values())])
         except BaseException:
             self.lock_file.close()
             raise
@@ -110,6 +111,7 @@ class ModelGateway:
         self.child = None
         self.log_thread = None
         self.current = None
+        (self.state / 'active.json').unlink(missing_ok=True)
         if child is None:
             return
         if child.poll() is None:
@@ -131,7 +133,7 @@ class ModelGateway:
         environment.pop('DS4_METAL_Q8_MV_ROWS', None)
         environment.setdefault('DS4_METAL_MODEL_UNTRACKED', '1')
         environment.update(model.get('environment', {}))
-        args = cook_studio.server_args(key, model, environment)
+        args = launcher.server_args(key, model, environment)
         log = (self.state / f'{key}.log').open('ab', buffering=0)
         try:
             child = subprocess.Popen(args, cwd=ROOT / model['source'], env=environment,
@@ -141,7 +143,6 @@ class ModelGateway:
             log.close()
             raise
         self.child = child
-        self.current = key
         self.log_thread = threading.Thread(
             target=relay_ds4_output, args=(child.stdout, log, sys.stdout.buffer),
             name=f'{key}-logs', daemon=True)
@@ -155,6 +156,7 @@ class ModelGateway:
                     ids = {item['id'] for item in json.load(response)['data']}
                 if model['api_model'] in ids:
                     (self.state / 'active.json').write_text(json.dumps({'model': key, 'pid': child.pid}) + '\n')
+                    self.current = key
                     return
             except (OSError, ValueError, KeyError):
                 pass
@@ -178,7 +180,7 @@ class ModelGateway:
                 try:
                     self._start(previous)
                 except Exception:
-                    pass
+                    self._stop_owned_child()
             raise
 
     def shutdown(self):
@@ -252,7 +254,7 @@ def make_handler(manager, key):
                     self.forward(body)
             except ValueError as error:
                 self.send_json(400, {'error': str(error)})
-            except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+            except (OSError, HTTPException, RuntimeError, subprocess.SubprocessError) as error:
                 self.send_json(503, {'error': f'{key} could not start or answer: {error}'})
 
         def forward(self, body):
@@ -264,14 +266,19 @@ def make_handler(manager, key):
             except urllib.error.HTTPError as error:
                 upstream = error
             with upstream:
-                self.send_response(upstream.status)
-                self.send_header('Content-Type', upstream.headers.get('Content-Type', 'application/json'))
-                self.send_header('Cache-Control', 'no-cache')
-                self.send_header('Connection', 'close')
-                self.end_headers()
-                while chunk := upstream.read1(32768):
-                    self.wfile.write(chunk)
-                    self.wfile.flush()
+                try:
+                    self.send_response(upstream.status)
+                    self.send_header('Content-Type', upstream.headers.get('Content-Type', 'application/json'))
+                    self.send_header('Cache-Control', 'no-cache')
+                    self.send_header('Connection', 'close')
+                    self.end_headers()
+                    while chunk := upstream.read1(32768):
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                except (OSError, HTTPException):
+                    # Headers may already be on the wire. End the incomplete
+                    # response without appending a second HTTP response.
+                    self.close_connection = True
     return Handler
 
 

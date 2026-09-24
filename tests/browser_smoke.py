@@ -58,7 +58,7 @@ except (OSError, TimeoutError):
 
 async def fixture():
     # Exercise the real DOM helpers without submitting data to an external site.
-    import browser
+    import browser_server as browser
     async with browser.lifespan(browser.app):
         identifier, session = await browser.session_for()
         page = session['page']

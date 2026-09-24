@@ -21,5 +21,5 @@ case "${1:-help}" in
         cd "$ROOT"
         exec "$PYTHON" -m unittest discover -s tests -v
         ;;
-    *) exec "$PYTHON" "$ROOT/src/cook_studio.py" "$@" ;;
+    *) exec "$PYTHON" "$ROOT/src/launcher.py" "$@" ;;
 esac

@@ -10,6 +10,6 @@ USER root
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/browsers HOME=/tmp
 COPY config/browser-requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt && patchright install --with-deps chromium && rm -rf /var/lib/apt/lists/*
-COPY src/browser.py /app/browser.py
+COPY src/browser_server.py /app/browser_server.py
 USER 1000:1000
-CMD ["uvicorn", "browser:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+CMD ["uvicorn", "browser_server:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

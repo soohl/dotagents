@@ -2,6 +2,7 @@
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import socket
@@ -11,12 +12,50 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location('cook_studio', ROOT / 'src/cook_studio.py')
+spec = importlib.util.spec_from_file_location('launcher', ROOT / 'src/launcher.py')
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 
 class LauncherTests(unittest.TestCase):
+    def test_download_repairs_invalid_files_and_keeps_valid_files(self):
+        for existing in (None, b'bad', b'evil', b'good'):
+            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / 'weights.gguf'
+                if existing is not None:
+                    path.write_bytes(existing)
+                artifact = {'path': path.name, 'size': 4,
+                            'sha256': hashlib.sha256(b'good').hexdigest()}
+                model = {'repository': 'test/model', 'weights_revision': 'pinned',
+                         'artifacts': [artifact]}
+                with patch.object(runner, 'ROOT', Path(folder)), \
+                        patch.object(runner.shutil, 'which', return_value='hf'), \
+                        patch.object(runner, 'command', side_effect=lambda args: path.write_bytes(b'good')) as command, \
+                        patch('sys.stdout', new_callable=io.StringIO):
+                    runner.download(model)
+                if existing == b'good':
+                    command.assert_not_called()
+                else:
+                    args = ['hf', 'download', 'test/model', path.name,
+                            '--revision', 'pinned', '--local-dir', folder]
+                    if existing is not None:
+                        args.append('--force-download')
+                    command.assert_called_once_with(args)
+                self.assertEqual(path.read_bytes(), b'good')
+
+    def test_download_rejects_invalid_replacement(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'weights.gguf'
+            path.write_bytes(b'evil')
+            model = {'repository': 'test/model', 'weights_revision': 'pinned',
+                     'artifacts': [{'path': path.name, 'size': 4,
+                                    'sha256': hashlib.sha256(b'good').hexdigest()}]}
+            with patch.object(runner, 'ROOT', Path(folder)), \
+                    patch.object(runner.shutil, 'which', return_value='hf'), \
+                    patch.object(runner, 'command'), \
+                    self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                runner.download(model)
+
     def test_discovery_from_another_directory(self):
         result = subprocess.run([str(ROOT / 'run.sh'), 'list'], cwd='/tmp',
                                 capture_output=True, text=True, check=True)

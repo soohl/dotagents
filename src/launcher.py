@@ -70,12 +70,17 @@ def download(model):
         raise ValueError('Install the Hugging Face CLI before downloading weights.')
     for artifact in required_artifacts(model):
         path = ROOT / artifact['path']
-        if not path.exists():
+        try:
+            check_artifact(artifact, checksum=True)
+        except ValueError:
             path.parent.mkdir(parents=True, exist_ok=True)
-            command([hf, 'download', artifact.get('repository', model['repository']), path.name,
-                     '--revision', artifact.get('revision', model['weights_revision']),
-                     '--local-dir', str(path.parent)])
-        check_artifact(artifact, checksum=True)
+            args = [hf, 'download', artifact.get('repository', model['repository']), path.name,
+                    '--revision', artifact.get('revision', model['weights_revision']),
+                    '--local-dir', str(path.parent)]
+            if path.exists():
+                args.append('--force-download')
+            command(args)
+            check_artifact(artifact, checksum=True)
     print('Weight sizes and SHA-256 checksums verified.')
 
 

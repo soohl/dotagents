@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import urllib.error
 import urllib.request
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 gateway = importlib.import_module('inference_gateway')
@@ -47,6 +47,97 @@ class FakeManager:
 
 
 class GatewayRoutingTests(unittest.TestCase):
+    def test_failed_switch_and_rollback_are_cleaned_up_before_retry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = object.__new__(gateway.ModelGateway)
+            manager.state = Path(directory)
+            manager.models = {key: {'source': 'backends/ds4', 'api_model': key}
+                              for key in ('qwen', 'deepseek')}
+            manager.closing = False
+            manager.current = 'qwen'
+            manager.child = Mock()
+            manager.child.poll.return_value = None
+            original = manager.child
+            manager.log_thread = None
+            (manager.state / 'active.json').write_text('{"model":"qwen"}')
+            children = []
+
+            def spawn(*args, **kwargs):
+                child = Mock(pid=1234)
+                child.poll.return_value = None
+                child.stdout = io.BufferedReader(io.BytesIO(b''))
+                children.append(child)
+                return child
+
+            with patch.object(gateway.launcher, 'server_args', return_value=['ds4-server']), \
+                    patch.object(gateway.subprocess, 'Popen', side_effect=spawn), \
+                    patch.object(gateway.sys, 'stdout', SimpleNamespace(buffer=io.BytesIO())):
+                with patch.object(gateway, 'READY_SECONDS', 0), \
+                        self.assertRaisesRegex(RuntimeError, 'deepseek did not become ready'):
+                    manager.ensure_loaded('deepseek')
+                self.assertEqual(len(children), 2)
+                for child in [original, *children]:
+                    child.terminate.assert_called_once()
+                self.assertIsNone(manager.child)
+                self.assertIsNone(manager.current)
+                self.assertFalse((manager.state / 'active.json').exists())
+                ready = io.BytesIO(b'{"data":[{"id":"qwen"}]}')
+                with patch.object(gateway.urllib.request, 'urlopen', return_value=ready):
+                    manager.ensure_loaded('qwen')
+                self.assertEqual(len(children), 3)
+                self.assertEqual(manager.current, 'qwen')
+                manager.ensure_loaded('qwen')
+                self.assertEqual(len(children), 3)
+                manager._stop_owned_child()
+
+    def test_upstream_failure_sends_only_one_http_response(self):
+        for streaming in (False, True):
+            with self.subTest(streaming=streaming), tempfile.TemporaryDirectory() as directory:
+                manager = FakeManager(Path(directory))
+                handler_type = gateway.make_handler(manager, 'qwen')
+                handler = handler_type.__new__(handler_type)
+                handler.path = '/v1/chat/completions'
+                handler.command = 'POST'
+                handler.request_version = 'HTTP/1.1'
+                handler.requestline = 'POST /v1/chat/completions HTTP/1.1'
+                handler.headers = {'Content-Length': '2'}
+                handler.rfile = io.BytesIO(b'{}')
+                handler.wfile = io.BytesIO()
+                handler.close_connection = False
+                upstream = MagicMock(status=200, headers={'Content-Type': 'text/event-stream'})
+                upstream.__enter__.return_value = upstream
+                upstream.read1.side_effect = [b'data: token\n\n', OSError('disconnected')]
+                with patch.object(gateway.urllib.request, 'urlopen', return_value=upstream,
+                                  side_effect=None if streaming else OSError('unavailable')):
+                    handler.do_POST()
+                response = handler.wfile.getvalue()
+                self.assertEqual(response.count(b'HTTP/1.0 '), 1)
+                if streaming:
+                    self.assertTrue(response.startswith(b'HTTP/1.0 200'))
+                    self.assertTrue(response.endswith(b'data: token\n\n'))
+                    self.assertTrue(handler.close_connection)
+                else:
+                    self.assertTrue(response.startswith(b'HTTP/1.0 503'))
+
+    def test_client_disconnect_does_not_send_an_error_response(self):
+        handler_type = gateway.make_handler(None, 'qwen')
+        handler = handler_type.__new__(handler_type)
+        handler.path = '/v1/chat/completions'
+        handler.command = 'POST'
+        handler.request_version = 'HTTP/1.1'
+        handler.requestline = 'POST /v1/chat/completions HTTP/1.1'
+        handler.wfile = Mock()
+        # Header write succeeds; the first token write finds a closed client.
+        handler.wfile.write.side_effect = [None, BrokenPipeError()]
+        upstream = MagicMock(status=200, headers={})
+        upstream.__enter__.return_value = upstream
+        upstream.read1.return_value = b'data: token\n\n'
+        with patch.object(gateway.urllib.request, 'urlopen', return_value=upstream):
+            handler.forward(b'{}')
+        self.assertTrue(handler.close_connection)
+        self.assertEqual(handler.wfile.write.call_count, 2)
+        upstream.__exit__.assert_called_once()
+
     def test_ds4_output_reaches_gateway_terminal_and_private_log(self):
         with tempfile.TemporaryDirectory() as directory:
             manager = object.__new__(gateway.ModelGateway)
@@ -61,7 +152,7 @@ class GatewayRoutingTests(unittest.TestCase):
             child.poll.return_value = None
             terminal = io.BytesIO()
             model_list = io.BytesIO(b'{"data":[{"id":"test-qwen"}]}')
-            with patch.object(gateway.cook_studio, 'server_args', return_value=['ds4-server']), \
+            with patch.object(gateway.launcher, 'server_args', return_value=['ds4-server']), \
                     patch.object(gateway.subprocess, 'Popen', return_value=child) as popen, \
                     patch.object(gateway.urllib.request, 'urlopen', return_value=model_list), \
                     patch.object(gateway.sys, 'stdout', SimpleNamespace(buffer=terminal)):

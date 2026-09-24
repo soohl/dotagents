@@ -41,6 +41,7 @@ Engine revisions, weight checksums, and model settings live in
 revision. Qwen uses one native Q4 GGUF with BF16 n-grams and a matching vision
 encoder. The model needs about 165 GiB of disk space; the encoder adds 617 MB.
 Setup builds DS4 without downloading weights. Downloads verify file size and SHA-256.
+Run download again to replace incomplete or corrupt weights. Valid files are kept.
 Disk prompt caching covers the configured context with a 32 GiB budget per model.
 
 In a second terminal, configure and start the UI:

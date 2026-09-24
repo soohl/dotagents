@@ -1,6 +1,6 @@
 **
 !src/
-!src/browser.py
+!src/browser_server.py
 !src/browser_proxy.py
 !config/
 !config/browser.Dockerfile

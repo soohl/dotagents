@@ -108,7 +108,12 @@ class ContainerBoundaryTests(unittest.TestCase):
         for service in services.values():
             for volume in service.get('volumes', []):
                 if volume['type'] == 'bind':
-                    self.assertTrue(Path(volume['source']).exists(), volume['source'])
+                    source = Path(volume['source'])
+                    if source == ROOT / '.local/personal-ai/tailscale':
+                        self.assertEqual(volume['target'], '/var/lib/tailscale')
+                        self.assertFalse(volume['bind']['create_host_path'])
+                    else:
+                        self.assertTrue(source.is_file(), volume['source'])
         mounts = services['caddy']['volumes']
         socket_mount = next(v for v in mounts if v['target'] == '/var/run/tailscale')
         self.assertTrue(socket_mount['read_only'])
