@@ -1,0 +1,168 @@
+name: cook-studio
+
+services:
+  caddy:
+    image: caddy:2.11.4-alpine@sha256:de23def33b17fb5d1290b0f6c2add1d70780e52341896c00a4c8a2a2fe9d355e
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:8080"
+    volumes:
+      - type: bind
+        source: ../config/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - caddy-data:/data
+      - caddy-config:/config
+      - type: bind
+        source: ../config/chat-only.caddy
+        target: /etc/caddy/chat-only.caddy
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      open-webui:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.11.4-slim@sha256:0487ad4a5a4b986062dedace806c3ef1e88fec38c10d1e64d6a5501c66671e5e
+    restart: unless-stopped
+    cap_drop: [ALL]
+    environment:
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:?Set WEBUI_SECRET_KEY in .env}
+      WEBUI_ADMIN_EMAIL: ${WEBUI_ADMIN_EMAIL:?Set WEBUI_ADMIN_EMAIL in .env}
+      WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD:?Set WEBUI_ADMIN_PASSWORD in .env}
+      WEBUI_URL: http://localhost:3000
+      CORS_ALLOW_ORIGIN: http://localhost:3000
+      WEBUI_AUTH: "true"
+      ENABLE_SIGNUP: "false"
+      # One authenticated user can use all models from the fixed local endpoints.
+      # Upstream otherwise hides unconfigured models from non-admin accounts.
+      BYPASS_MODEL_ACCESS_CONTROL: "true"
+      ENABLE_PERSISTENT_CONFIG: "false"
+      SAFE_MODE: "true"
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URL: http://host.docker.internal:8000/v1
+      OPENAI_API_BASE_URLS: http://host.docker.internal:8000/v1;http://host.docker.internal:8001/v1
+      OPENAI_API_KEY: local
+      OPENAI_API_KEYS: local;local
+      # Discover one model per endpoint with its image/file capabilities.
+      # Send only the chat ID so the gateway can prevent model changes in a chat.
+      OPENAI_API_CONFIGS: '{"0":{"enable":true,"headers":{"X-Cook-Studio-Chat-Id":"{{CHAT_ID}}"}},"1":{"enable":true,"headers":{"X-Cook-Studio-Chat-Id":"{{CHAT_ID}}"}}}'
+      ENABLE_DIRECT_CONNECTIONS: "false"
+      ENABLE_DIRECT_INTEGRATIONS: "false"
+      ENABLE_CODE_EXECUTION: "false"
+      ENABLE_CODE_INTERPRETER: "false"
+      ENABLE_MEMORIES: "false"
+      ENABLE_MEMORY_SYSTEM_CONTEXT: "false"
+      ENABLE_MEMORY_BACKGROUND_REVIEW: "false"
+      ENABLE_FOLDERS: "false"
+      ENABLE_CHANNELS: "false"
+      ENABLE_CALENDAR: "false"
+      ENABLE_AUTOMATIONS: "false"
+      ENABLE_SUBAGENTS: "false"
+      ENABLE_NOTES: "false"
+      ENABLE_USER_STATUS: "false"
+      ENABLE_USER_WEBHOOKS: "false"
+      ENABLE_ADMIN_ANALYTICS: "false"
+      ENABLE_ADMIN_CHAT_ACCESS: "false"
+      ENABLE_PUBLIC_ACTIVE_USERS_COUNT: "false"
+      ENABLE_EASTER_EGGS: "false"
+      ENABLE_PLUGINS: "false"
+      ENABLE_ADMIN_EXPORT: "false"
+      ENABLE_ADMIN_WORKSPACE_CONTENT_ACCESS: "false"
+      ENABLE_MESSAGE_RATING: "false"
+      ENABLE_API_KEYS: "false"
+      ENABLE_LDAP: "false"
+      ENABLE_COMMUNITY_SHARING: "false"
+      ENABLE_EVALUATION_ARENA_MODELS: "false"
+      ENABLE_OPENAI_API_PASSTHROUGH: "false"
+      OFFLINE_MODE: "true"
+      HF_HUB_OFFLINE: "1"
+      ENABLE_VERSION_UPDATE_CHECK: "false"
+      ENABLE_TITLE_GENERATION: "false"
+      ENABLE_TAGS_GENERATION: "false"
+      ENABLE_FOLLOW_UP_GENERATION: "false"
+      # Summarize older chat turns with the selected local model before the
+      # 65,536-token DS4 context fills. Keep recent turns verbatim.
+      ENABLE_CONTEXT_COMPACTION: "true"
+      CONTEXT_COMPACTION_TOKEN_THRESHOLD: "48000"
+      CONTEXT_COMPACTION_RETENTION_PERCENTAGE: "40"
+      ENABLE_SEARCH_QUERY_GENERATION: "false"
+      ENABLE_RETRIEVAL_QUERY_GENERATION: "false"
+      ENABLE_AUTOCOMPLETE_GENERATION: "false"
+      ENABLE_VOICE_MODE_PROMPT: "false"
+      ENABLE_WEB_SEARCH: "false"
+      ENABLE_IMAGE_GENERATION: "false"
+      ENABLE_IMAGE_PROMPT_GENERATION: "false"
+      ENABLE_IMAGE_EDIT: "false"
+      ENABLE_GOOGLE_DRIVE_INTEGRATION: "false"
+      ENABLE_ONEDRIVE_INTEGRATION: "false"
+      ENABLE_LOCAL_WEB_FETCH: "false"
+      ENABLE_RAG_HYBRID_SEARCH: "false"
+      # Extract attached documents locally and send their text in chat context.
+      BYPASS_EMBEDDING_AND_RETRIEVAL: "true"
+      RAG_FILE_MAX_COUNT: "5"
+      RAG_FILE_MAX_SIZE: "20"
+      FILE_IMAGE_COMPRESSION_WIDTH: "1024"
+      FILE_IMAGE_COMPRESSION_HEIGHT: "1024"
+      # The single chat account uses the user role; these permissions also hide
+      # optional controls that administrators can otherwise bypass.
+      USER_PERMISSIONS_WORKSPACE_MODELS_ACCESS: "false"
+      USER_PERMISSIONS_WORKSPACE_KNOWLEDGE_ACCESS: "false"
+      USER_PERMISSIONS_WORKSPACE_PROMPTS_ACCESS: "false"
+      USER_PERMISSIONS_WORKSPACE_TOOLS_ACCESS: "false"
+      USER_PERMISSIONS_WORKSPACE_SKILLS_ACCESS: "false"
+      USER_PERMISSIONS_CHAT_FILE_UPLOAD: "true"
+      USER_PERMISSIONS_CHAT_WEB_UPLOAD: "false"
+      USER_PERMISSIONS_CHAT_SHARE: "false"
+      USER_PERMISSIONS_CHAT_ALLOW_PUBLIC_SHARING: "false"
+      USER_PERMISSIONS_CHAT_ALLOW_OPEN_SHARING: "false"
+      USER_PERMISSIONS_CHAT_IMPORT: "false"
+      USER_PERMISSIONS_CHAT_STT: "false"
+      USER_PERMISSIONS_CHAT_TTS: "false"
+      USER_PERMISSIONS_CHAT_CALL: "false"
+      USER_PERMISSIONS_CHAT_MULTIPLE_MODELS: "false"
+      USER_PERMISSIONS_CHAT_CONTROLS: "false"
+      USER_PERMISSIONS_CHAT_SYSTEM_PROMPT: "false"
+      USER_PERMISSIONS_CHAT_PARAMS: "false"
+      USER_PERMISSIONS_CHAT_VALVES: "false"
+      USER_PERMISSIONS_CHAT_RATE_RESPONSE: "false"
+      USER_PERMISSIONS_CHAT_EXPORT: "false"
+      USER_PERMISSIONS_FEATURES_DIRECT_TOOL_SERVERS: "false"
+      USER_PERMISSIONS_FEATURES_WEB_SEARCH: "false"
+      USER_PERMISSIONS_FEATURES_IMAGE_GENERATION: "false"
+      USER_PERMISSIONS_FEATURES_CODE_INTERPRETER: "false"
+      USER_PERMISSIONS_FEATURES_FOLDERS: "false"
+      USER_PERMISSIONS_FEATURES_NOTES: "false"
+      USER_PERMISSIONS_FEATURES_CHANNELS: "false"
+      USER_PERMISSIONS_FEATURES_API_KEYS: "false"
+      USER_PERMISSIONS_FEATURES_MEMORIES: "false"
+      USER_PERMISSIONS_FEATURES_AUTOMATIONS: "false"
+      USER_PERMISSIONS_FEATURES_CALENDAR: "false"
+      USER_PERMISSIONS_FEATURES_USER_WEBHOOKS: "false"
+    volumes:
+      - webui-data:/app/backend/data
+      - type: bind
+        source: ../src/context_meter.js
+        target: /app/build/static/loader.js
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  webui-data:
+  caddy-data:
+  caddy-config:

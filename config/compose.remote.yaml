@@ -1,0 +1,118 @@
+# Add to the base configuration for Funnel and passkey authentication.
+services:
+  tailscale:
+    image: tailscale/tailscale@sha256:2667499ed87ae29218f292556ba062918402dd5e92e93637af14867e4df12dd3
+    entrypoint: [tailscaled]
+    command:
+      - --tun=userspace-networking
+      - --state=/var/lib/tailscale/tailscaled.state
+      - --statedir=/var/lib/tailscale
+      - --socket=/var/run/tailscale/tailscaled.sock
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    tmpfs: [/tmp]
+    volumes:
+      - tailscale-socket:/var/run/tailscale
+      - type: bind
+        source: ../.local/personal-ai/tailscale
+        target: /var/lib/tailscale
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [CMD-SHELL, 'tailscale status --json | grep -q ''"BackendState": "Running"''']
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    security_opt: [no-new-privileges:true]
+
+  pocket-id:
+    image: ghcr.io/pocket-id/pocket-id:v2.16.0@sha256:9366436f3fd21619ed7e5709fa0acac88130f73414ec8ee1caf768fc487111ea
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    environment:
+      ENCRYPTION_KEY: ${POCKET_ID_ENCRYPTION_KEY:?Set POCKET_ID_ENCRYPTION_KEY in .env}
+      APP_URL: https://${FUNNEL_HOSTNAME:?Set FUNNEL_HOSTNAME in .env}:8443
+      INTERNAL_APP_URL: http://pocket-id:1411
+      TRUST_PROXY: "false"
+      ANALYTICS_DISABLED: "true"
+      VERSION_CHECK_DISABLED: "true"
+      ALLOW_INSECURE_CALLBACK_URLS: "false"
+      UI_CONFIG_DISABLED: "true"
+      APP_NAME: Cook Studio
+      ALLOW_USER_SIGNUPS: disabled
+      ALLOW_OWN_ACCOUNT_EDIT: "false"
+      WEBAUTHN_USER_VERIFICATION: required
+      EMAIL_ONE_TIME_ACCESS_AS_UNAUTHENTICATED_ENABLED: "false"
+      EMAIL_ONE_TIME_ACCESS_AS_ADMIN_ENABLED: "false"
+    volumes:
+      - pocket-id-data:/app/data
+    healthcheck:
+      test: [CMD, /app/pocket-id, healthcheck]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  caddy:
+    cap_drop: [ALL]
+    # The official binary requires this file capability at exec.
+    cap_add: [NET_BIND_SERVICE]
+    network_mode: service:tailscale
+    ports: !reset []
+    environment:
+      FUNNEL_HOSTNAME: ${FUNNEL_HOSTNAME:?Set FUNNEL_HOSTNAME in .env}
+    volumes:
+      - tailscale-socket:/var/run/tailscale:ro
+      - type: bind
+        source: ../config/Caddyfile.passkey
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../config/Caddyfile.funnel
+        target: /etc/caddy/Caddyfile.funnel
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      tailscale:
+        condition: service_healthy
+        restart: true
+      pocket-id:
+        condition: service_healthy
+
+  open-webui:
+    environment:
+      WEBUI_URL: https://${FUNNEL_HOSTNAME}
+      CORS_ALLOW_ORIGIN: https://${FUNNEL_HOSTNAME}
+      WEBUI_SESSION_COOKIE_SECURE: "true"
+      WEBUI_AUTH_COOKIE_SECURE: "true"
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:?Set OAUTH_CLIENT_ID in .env}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:?Set OAUTH_CLIENT_SECRET in .env}
+      ENABLE_OAUTH: "true"
+      ENABLE_OAUTH_SIGNUP: "false"
+      ENABLE_LOGIN_FORM: ${WEBUI_PASSWORD_LOGIN_ENABLED:-false}
+      ENABLE_PASSWORD_AUTH: ${WEBUI_PASSWORD_LOGIN_ENABLED:-false}
+      ENABLE_PASSWORD_CHANGE_FORM: "false"
+      OPENID_PROVIDER_URL: http://pocket-id:1411/.well-known/openid-configuration
+      OPENID_REDIRECT_URI: https://${FUNNEL_HOSTNAME}/oauth/oidc/callback
+      OAUTH_PROVIDER_NAME: Passkey
+      OAUTH_SCOPES: openid email profile
+      OAUTH_CODE_CHALLENGE_METHOD: S256
+      OAUTH_MERGE_ACCOUNTS_BY_EMAIL: ${WEBUI_OAUTH_MERGE_EMAIL:-false}
+      OAUTH_UPDATE_PICTURE_ON_LOGIN: "false"
+      OAUTH_UPDATE_EMAIL_ON_LOGIN: "false"
+    depends_on:
+      pocket-id:
+        condition: service_healthy
+
+volumes:
+  tailscale-socket:
+  pocket-id-data:

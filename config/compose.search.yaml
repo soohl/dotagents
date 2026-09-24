@@ -1,0 +1,28 @@
+# Add last in COMPOSE_FILE after saving the private Brave API key.
+services:
+  open-webui:
+    environment:
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:?Set BRAVE_SEARCH_API_KEY in .env}
+      ENABLE_WEB_SEARCH: "true"
+      USER_PERMISSIONS_FEATURES_WEB_SEARCH: "true"
+      ENABLE_SEARCH_QUERY_GENERATION: "true"
+      # Give every new chat Brave Search through native tool calling.
+      DEFAULT_MODEL_PARAMS: '{"function_calling":"native"}'
+      DEFAULT_MODEL_METADATA: '{"capabilities":{"web_search":true},"defaultFeatureIds":["web_search"],"builtinTools":{"time":false,"user_input":false,"files":false,"knowledge":false,"chats":false,"tasks":false,"web_search":true}}'
+      WEB_SEARCH_ENGINE: brave_llm_context
+      WEB_SEARCH_RESULT_COUNT: "3"
+      WEB_SEARCH_CONCURRENT_REQUESTS: "1"
+      BRAVE_SEARCH_CONTEXT_TOKENS: "4096"
+      BYPASS_WEB_SEARCH_WEB_LOADER: "true"
+      BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL: "true"
+      # Keep query generation on the selected local model. This is a prompt,
+      # not a billing limit; configure the spending limit in Brave's dashboard.
+      QUERY_GENERATION_PROMPT_TEMPLATE: |
+        Generate one concise web search query for the latest user question.
+        Use earlier messages only to resolve references. Exclude credentials
+        and personal details that are not necessary for the search.
+        Return only JSON: {"queries": ["your query"]}.
+        Current date: {{CURRENT_DATE}}
+        <chat_history>
+        {{MESSAGES:END:6}}
+        </chat_history>

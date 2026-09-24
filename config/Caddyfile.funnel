@@ -1,0 +1,29 @@
+{
+	admin off
+	auto_https disable_redirects
+	servers {
+		protocols h1 h2
+	}
+}
+
+# Only the home Funnel forwarder can reach this loopback listener.
+# Caddy retrieves and renews *.ts.net certificates through the local daemon.
+https://{$FUNNEL_HOSTNAME}:8443 {
+	bind 127.0.0.1
+	tls {
+		protocols tls1.3
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		X-Frame-Options SAMEORIGIN
+		-Server
+	}
+	# Default compression types exclude event streams.
+	encode zstd gzip
+	import /etc/caddy/chat-only.caddy
+	reverse_proxy open-webui:8080 {
+		flush_interval -1
+	}
+}

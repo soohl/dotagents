@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-if [ -x "$ROOT/.venv/bin/python3" ]; then
-    export PATH="$ROOT/.venv/bin:$PATH"
+PYTHON="$ROOT/.venv/bin/python"
+if [ ! -x "$PYTHON" ]; then
+    printf 'Create the local environment first: uv venv .venv\n' >&2
+    exit 1
 fi
-if [ "${1:-}" = check ]; then
-    cd "$ROOT"
-    for script in run.sh llm backends/scripts/*.sh; do
-        bash -n "$script"
-    done
-    exec python3 -m unittest discover -s tests -v
-fi
-if [ "${1:-}" = prefill ]; then
-    shift
-    exec python3 "$ROOT/benchmarks/prefill.py" "$@"
-fi
-if [ "${1:-}" = backends ]; then
-    exec python3 "$ROOT/tools/backend_status.py"
-fi
-exec "$ROOT/llm" "$@"
+export PYTHONDONTWRITEBYTECODE=1
+case "${1:-help}" in
+    gateway)
+        cd "$ROOT"
+        exec "$PYTHON" "$ROOT/src/inference_gateway.py" "${2:-qwen}"
+        ;;
+    check-browser)
+        cd "$ROOT"
+        exec docker compose --env-file .env exec -T browser python - < tests/browser_smoke.py
+        ;;
+    check|test)
+        bash -n "$ROOT/run.sh"
+        cd "$ROOT"
+        exec "$PYTHON" -m unittest discover -s tests -v
+        ;;
+    *) exec "$PYTHON" "$ROOT/src/cook_studio.py" "$@" ;;
+esac

@@ -1,0 +1,11 @@
+{
+	admin off
+}
+
+# Local bootstrap only. The remote overlay requires a separate TLS configuration.
+http://:8080 {
+	import /etc/caddy/chat-only.caddy
+	reverse_proxy open-webui:8080 {
+		flush_interval -1
+	}
+}

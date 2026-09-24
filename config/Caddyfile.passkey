@@ -1,0 +1,19 @@
+import /etc/caddy/Caddyfile.funnel
+
+# Funnel port 8443 forwards raw TCP to this home TLS listener.
+https://{$FUNNEL_HOSTNAME}:9443 {
+	bind 127.0.0.1
+	tls {
+		protocols tls1.3
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		-Server
+	}
+	encode zstd gzip
+	redir /login-code /login/alternative/code 302
+	reverse_proxy pocket-id:1411
+}

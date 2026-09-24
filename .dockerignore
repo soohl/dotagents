@@ -1,0 +1,7 @@
+**
+!src/
+!src/browser.py
+!src/browser_proxy.py
+!config/
+!config/browser.Dockerfile
+!config/browser-requirements.txt

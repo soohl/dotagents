@@ -1,6 +1,3 @@
 [submodule "backends/ds4"]
 	path = backends/ds4
 	url = https://github.com/antirez/ds4.git
-[submodule "backends/omlx"]
-	path = backends/omlx
-	url = https://github.com/jundot/omlx.git

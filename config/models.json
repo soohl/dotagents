@@ -1,0 +1,62 @@
+{
+  "repository": "https://github.com/antirez/ds4.git",
+  "models": {
+    "qwen": {
+      "name": "Qwen 3.8 Flash Next",
+      "aliases": [
+        "qwen3.8-flash-next-ds4",
+        "qwen3.8-flash-next"
+      ],
+      "api_model": "qwen3.8-flash-next",
+      "source": "backends/ds4",
+      "revision": "0aaea5a238fb41a35106a551e73c8409dfb751ac",
+      "repository": "antirez/qwen3.8-flash-next-gguf",
+      "weights_revision": "d600fe1a43d2e1cdcadb85144ce3142f66f9eefe",
+      "context": 65536,
+      "port": 8000,
+      "prefill_chunk": 8192,
+      "cache_space_mb": 32768,
+      "cache_alignment": 256,
+      "cache_directory": "q4-native-kv-cache",
+      "artifacts": [
+        {
+          "path": "models/Qwen3.8-Flash-Next-DS4/gguf/native-q4/Qwen3.8-Flash-Next-Q4.gguf",
+          "size": 177280286720,
+          "sha256": "680944460a8cbe93ba8b6d7b6107213ffb7e22320bd913000e563ca0a0f25a8a"
+        }
+      ],
+      "vision_encoder": {
+        "repository": "ggml-org/Qwen3.8-Flash-Next-GGUF",
+        "revision": "01534bc2e1877d5de995b73d247d4459d273e688",
+        "path": "models/Qwen3.8-Flash-Next-DS4/gguf/vision/mmproj-Qwen3.8-Flash-Next-Q8_0.gguf",
+        "size": 616703104,
+        "sha256": "b2e9b5e4a44c107f8867e67dbf09b607fd99ae33c1a97a60a6720aeb252a9dad"
+      }
+    },
+    "deepseek": {
+      "name": "DeepSeek V4 Flash 0731",
+      "aliases": [
+        "deepseek-v4-flash-0731",
+        "deepseek-v4-flash"
+      ],
+      "api_model": "deepseek-v4-flash",
+      "source": "backends/ds4",
+      "revision": "0aaea5a238fb41a35106a551e73c8409dfb751ac",
+      "repository": "antirez/deepseek-v4-gguf",
+      "weights_revision": "e7f04037032990db0346398d249baf9fb9df1ccc",
+      "context": 65536,
+      "port": 8001,
+      "prefill_chunk": 4096,
+      "cache_space_mb": 32768,
+      "cache_alignment": 256,
+      "cache_directory": "mxfp4-kv-cache",
+      "artifacts": [
+        {
+          "path": "models/DeepSeek-V4-Flash-0731/gguf/DeepSeek-V4-Flash-MXFP4Experts-F16HC-F16Compressor-F16Indexer-Q8Attn-Q8Shared-Q8Out-chat-v2-mxfp4-0731.gguf",
+          "size": 155976458848,
+          "sha256": "0e3a161b670f686128ec5f92a601dfde616a37bf5e7e48999fa2d32471b57ec6"
+        }
+      ]
+    }
+  }
+}

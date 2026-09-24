@@ -1,0 +1,14 @@
+# Enforce the text-chat boundary even where upstream permissions only hide UI.
+@disabled_features {
+	path_regexp ^/api/v1/(audio|images|retrieval|knowledge|tools|functions|skills|notes|channels|memories|folders|automations|calendar|groups|evaluations|pipelines|webhooks|terminals)(/|$)
+	# This route checks authentication, the global switch, and user permission.
+	# It returns 403 until compose.search.yaml enables search.
+	not path /api/v1/retrieval/process/web/search /api/v1/tools/
+}
+respond @disabled_features "This feature is disabled on this instance." 403
+# Allow authenticated discovery only. Tool creation and edits remain blocked.
+@tool_list_write {
+	path /api/v1/tools/
+	not method GET
+}
+respond @tool_list_write "This feature is disabled on this instance." 403
