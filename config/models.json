@@ -1,38 +1,6 @@
 {
   "repository": "https://github.com/antirez/ds4.git",
   "models": {
-    "qwen": {
-      "name": "Qwen 3.8 Flash Next",
-      "aliases": [
-        "qwen3.8-flash-next-ds4",
-        "qwen3.8-flash-next"
-      ],
-      "api_model": "qwen3.8-flash-next",
-      "source": "backends/ds4",
-      "revision": "0aaea5a238fb41a35106a551e73c8409dfb751ac",
-      "repository": "antirez/qwen3.8-flash-next-gguf",
-      "weights_revision": "d600fe1a43d2e1cdcadb85144ce3142f66f9eefe",
-      "context": 65536,
-      "port": 8000,
-      "prefill_chunk": 8192,
-      "cache_space_mb": 32768,
-      "cache_alignment": 256,
-      "cache_directory": "q4-native-kv-cache",
-      "artifacts": [
-        {
-          "path": "models/Qwen3.8-Flash-Next-DS4/gguf/native-q4/Qwen3.8-Flash-Next-Q4.gguf",
-          "size": 177280286720,
-          "sha256": "680944460a8cbe93ba8b6d7b6107213ffb7e22320bd913000e563ca0a0f25a8a"
-        }
-      ],
-      "vision_encoder": {
-        "repository": "ggml-org/Qwen3.8-Flash-Next-GGUF",
-        "revision": "01534bc2e1877d5de995b73d247d4459d273e688",
-        "path": "models/Qwen3.8-Flash-Next-DS4/gguf/vision/mmproj-Qwen3.8-Flash-Next-Q8_0.gguf",
-        "size": 616703104,
-        "sha256": "b2e9b5e4a44c107f8867e67dbf09b607fd99ae33c1a97a60a6720aeb252a9dad"
-      }
-    },
     "deepseek": {
       "name": "DeepSeek V4 Flash 0731",
       "aliases": [
@@ -40,12 +8,12 @@
         "deepseek-v4-flash"
       ],
       "api_model": "deepseek-v4-flash",
+      "engine": "ds4",
       "source": "backends/ds4",
       "revision": "0aaea5a238fb41a35106a551e73c8409dfb751ac",
       "repository": "antirez/deepseek-v4-gguf",
       "weights_revision": "e7f04037032990db0346398d249baf9fb9df1ccc",
-      "context": 65536,
-      "port": 8001,
+      "context": 131072,
       "prefill_chunk": 4096,
       "cache_space_mb": 32768,
       "cache_alignment": 256,
@@ -57,6 +25,198 @@
           "sha256": "0e3a161b670f686128ec5f92a601dfde616a37bf5e7e48999fa2d32471b57ec6"
         }
       ]
+    },
+    "qwen-omlx": {
+      "name": "Qwen 3.8 Flash Next",
+      "aliases": [
+        "qwen3.8-flash-next-omlx",
+        "qwen"
+      ],
+      "api_model": "qwen3.8-flash-next-omlx",
+      "engine": "omlx",
+      "optional": true,
+      "source": ".local/engines/omlx",
+      "revision": "4d4f5a280bc1739ba2cf39c1cee44fd5cc89cb40",
+      "repository": "Jundot/Qwen3.8-Flash-Next-oQ4e-mtp",
+      "weights_revision": "2615fc0e976e65c2f3b55daca3a948f1cdc5b9f8",
+      "context": 131072,
+      "model_directory": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp",
+      "vision": true,
+      "artifacts": [
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/README.md",
+          "size": 321,
+          "sha256": "902ffac06d57d5c1ef7a0449d5193e68a30ec2936c4b10dc52e256098c035468"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/chat_template.jinja",
+          "size": 8952,
+          "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/config.json",
+          "size": 183155,
+          "sha256": "319b334a1abb705acf06035aa0331bcb7c25976ff93a5035b543548738a10824"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/generation_config.json",
+          "size": 202,
+          "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/merges.txt",
+          "size": 3353259,
+          "sha256": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00001-of-00021.safetensors",
+          "size": 5181086792,
+          "sha256": "a6cf3bfbe6fbde70053a60a67c9e818a3945a8e90a2f46296e3f18f254b027bf"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00002-of-00021.safetensors",
+          "size": 5000033521,
+          "sha256": "db06472d04ba86694acb8f619fe2214b7168f88b508ae898e9b86070981e2bd5"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00003-of-00021.safetensors",
+          "size": 5000033540,
+          "sha256": "2b9227ee8660350cddacc51172c5c54110feb383f8ed731fffd610a1892caefd"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00004-of-00021.safetensors",
+          "size": 5000033548,
+          "sha256": "4915e5847b9ccb35c88a8cbf2a6404da5c1fa8cde47382d11eb6e1660ecc1ffd"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00005-of-00021.safetensors",
+          "size": 5000033542,
+          "sha256": "750fa33d41879b445f1da4a422b728bbe930f7645987e6674e62ca2e437223c5"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00006-of-00021.safetensors",
+          "size": 5000033551,
+          "sha256": "c030f56b7c18c10f0acdfb97bdc467a3bdd6251a92503ef397822fbb136dc516"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00007-of-00021.safetensors",
+          "size": 5000033608,
+          "sha256": "0f3e15d9ecdfa428206b3ebac1f11731d49cd38e082b2b285920273a4388542e"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00008-of-00021.safetensors",
+          "size": 5053029121,
+          "sha256": "b355190385c39692a70a697714566668043a27d9c1cdb0096b092187ec679052"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00009-of-00021.safetensors",
+          "size": 5190455847,
+          "sha256": "56590b6cf020a765f7b25e67f91eb5007efefeedeccac2d98da7a37904238155"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00010-of-00021.safetensors",
+          "size": 5190455845,
+          "sha256": "b294ba05bf87f88b1a4bb74bc804c45580a1d702832895a7aa3e819a1ddb7645"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00011-of-00021.safetensors",
+          "size": 5190455887,
+          "sha256": "c5ba00b141253958f59ae2419b4a4386dcc8963bfc9783b973aea41ca7ed80f8"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00012-of-00021.safetensors",
+          "size": 5190455886,
+          "sha256": "9d10275984cda0ce91949708eee12182aeb11e5967cc94f7af93d46282399c10"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00013-of-00021.safetensors",
+          "size": 5190455880,
+          "sha256": "2a894851d5dab6317cc5153761c5418e58167c702633750d81fba4d8d20588e8"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00014-of-00021.safetensors",
+          "size": 5190455886,
+          "sha256": "ddc7e07e1f6546e2abd808e66533e3acdd77fd139f5bad60d1ff68ec31512b95"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00015-of-00021.safetensors",
+          "size": 5190455896,
+          "sha256": "2685967ee4cfcb7096113fa79af8c0064de85e6c1e35bd5cc8f0d42914d3a4ee"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00016-of-00021.safetensors",
+          "size": 5190455890,
+          "sha256": "e804c5fa09730a010fea49cd5609af481712119c77b978981dc31c431a1b72a0"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00017-of-00021.safetensors",
+          "size": 5190455894,
+          "sha256": "36b1a960439224e1d091d3750480b2a5482564226a094128dab69abbd29b6d2a"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00018-of-00021.safetensors",
+          "size": 5190455880,
+          "sha256": "3909354752750e8938625c47e90cd39d13a8a19e2369270ea8e6ae0e5dbd2b60"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00019-of-00021.safetensors",
+          "size": 5190455884,
+          "sha256": "b8d136f5780a174f0a7f9ecfc7accbcf7fbc828d5dc161d917f70ef45af545ac"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00020-of-00021.safetensors",
+          "size": 5190455892,
+          "sha256": "d5b16c8abcbafad19571327ab68bebd45443551cb8f8c3bb2ee871516ae0a93c"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model-00021-of-00021.safetensors",
+          "size": 3774876856,
+          "sha256": "e4339a78fe23d2392611e0a60ac2f0a4c996592670c10f5508fbec9804f21abc"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/model.safetensors.index.json",
+          "size": 405177,
+          "sha256": "05f70b017f328d7d9f955186bd9868d1f5c3fb708df89cd47d7d1c14b73b73d2"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/oq_imatrix_report.json",
+          "size": 67078,
+          "sha256": "e486c28422904e61501d52e25cc1b4b76ed0e13fe981997d062ed34771956a2b"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/preprocessor_config.json",
+          "size": 390,
+          "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/tokenizer.json",
+          "size": 12809320,
+          "sha256": "0997f410c57a1f4e53b09e4be8f4a172d90edd9564368fb0847030937229b9f3"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/tokenizer_config.json",
+          "size": 17928,
+          "sha256": "b11349aafa7cdc6a320767cf7ceb29ed82f7eda5d65e8e0819e76f0ce947bf27"
+        },
+        {
+          "path": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp/vocab.json",
+          "size": 6722759,
+          "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+        }
+      ]
     }
-  }
+  },
+  "engines": {
+    "omlx": {
+      "repository": "https://github.com/jundot/omlx.git",
+      "license": "Apache-2.0"
+    }
+  },
+  "retired_models": {
+    "qwen": "Qwen 3.8 Flash Next"
+  },
+  "retired_model_aliases": [
+    "qwen3.8-flash-next-ds4",
+    "qwen3.8-flash-next"
+  ]
 }

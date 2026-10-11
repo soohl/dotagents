@@ -1,0 +1,69 @@
+server:
+  address: tcp://:9091
+  buffers:
+    # Harness bundles use long asset URLs in forwarded request headers.
+    read: 16384
+  # Compose probes /api/health directly. Do not write the image's healthcheck file.
+  disable_healthcheck: true
+log:
+  level: info
+theme: auto
+authentication_backend:
+  password_reset:
+    disable: true
+  file:
+    path: /data/users.json
+    watch: true
+    password:
+      algorithm: argon2
+      argon2:
+        variant: argon2id
+        iterations: 3
+        memory: 65536
+        parallelism: 4
+totp:
+  disable: true
+webauthn:
+  disable: false
+  enable_passkey_login: false
+  display_name: DotAgents
+  attestation_conveyance_preference: none
+  filtering:
+    prohibit_backup_eligibility: true
+  selection_criteria:
+    attachment: cross-platform
+    discoverability: discouraged
+    user_verification: preferred
+identity_validation:
+  elevated_session:
+    code_lifespan: 5m
+    elevation_lifespan: 10m
+    characters: 8
+    require_second_factor: false
+    skip_second_factor: false
+access_control:
+  default_policy: deny
+  rules:
+    - domain: '{{ env "FUNNEL_HOSTNAME" }}'
+      policy: two_factor
+      subject: 'group:browser'
+session:
+  name: __Secure-dotagents-authelia
+  same_site: lax
+  inactivity: 12h
+  expiration: 12h
+  remember_me: -1
+  cookies:
+    - domain: '{{ env "FUNNEL_HOSTNAME" }}'
+      authelia_url: 'https://{{ env "FUNNEL_HOSTNAME" }}:8443'
+      default_redirection_url: 'https://{{ env "FUNNEL_HOSTNAME" }}/'
+regulation:
+  max_retries: 5
+  find_time: 2m
+  ban_time: 5m
+storage:
+  local:
+    path: /data/identity.sqlite3
+notifier:
+  filesystem:
+    filename: /data/notifications.txt

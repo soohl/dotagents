@@ -1,0 +1,32 @@
+# Dedicated stack node. Host Tailscale remains separate.
+services:
+  tailscale:
+    image: tailscale/tailscale@sha256:2667499ed87ae29218f292556ba062918402dd5e92e93637af14867e4df12dd3
+    entrypoint: [tailscaled]
+    command:
+      - --tun=userspace-networking
+      - --state=/var/lib/tailscale/tailscaled.state
+      - --statedir=/var/lib/tailscale
+      - --socket=/var/run/tailscale/tailscaled.sock
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    tmpfs: [/tmp]
+    volumes:
+      - tailscale-socket:/var/run/tailscale
+      - type: bind
+        source: ../.local/personal-ai/tailscale
+        target: /var/lib/tailscale
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [CMD-SHELL, 'tailscale status --json | grep -q ''"BackendState": "Running"''']
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    security_opt: [no-new-privileges:true]
+
+
+volumes:
+  tailscale-socket:

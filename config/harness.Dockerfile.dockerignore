@@ -1,0 +1,10 @@
+**
+!config/
+!config/harness-package.json
+!config/harness-package-lock.json
+!config/harness-browser.json
+!config/harness-chat-browser.json
+!config/harness-policy.json
+!src/
+!src/harness_runtime/
+!src/harness_runtime/**

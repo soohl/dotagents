@@ -1,0 +1,31 @@
+services:
+  image-web:
+    image: dotagents-image-web:local
+    build:
+      context: ..
+      dockerfile: config/image-web.Dockerfile
+    init: true
+    restart: unless-stopped
+    read_only: true
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      IMAGE_API_BASE_URL: ${DOTAGENTS_REMOTE_IMAGE_URL:?No Image API discovered; check the gateway or disable applications.images in config.yaml}
+      IMAGE_HISTORY_DIR: /data/images
+    ports:
+      - "127.0.0.1:3001:8080"
+    volumes:
+      - image-history:/data/images
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=128m,mode=1777
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    stop_grace_period: 30s
+
+volumes:
+  image-history:

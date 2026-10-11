@@ -1,15 +1,25 @@
-# cook-studio rules
+# DotAgents rules
 
-- Support only DeepSeek V4 Flash and Qwen 3.8 Flash Next through native DS4 Metal.
-- Keep README.md short. Put local plans and operational notes in ignored docs/.
-- Keep commands in run.sh, implementation in src/, and pins/settings in config/.
-- Keep DS4 Git links and model revisions consistent. Do not claim speed gains
-  without matched measurements and quality checks on this Mac.
-- Load one large model at a time. Never stop a server owned by another process.
-- Keep weights, credentials, host-specific details, caches, benchmarks, and
-  historical results out of Git. Use one ignored root .env for stack credentials.
-- Preserve working authentication, chat data, and upstream licenses.
-- Reuse .venv and installed tools. Run ./run.sh check after code/config changes.
-  Engine changes also need targeted upstream tests and matched inference checks.
-- Work on the current branch. Do not commit, push, rewrite Git history, or make
+- Keep this personal stack lightweight. The host is a Mac with Tailscale.
+  Discover optional nodes; do not assume hardware, addresses, or a tailnet.
+- Expose only `./run.sh` and `./run.sh --verify`. Require readiness checks
+  before startup. Keep the full test suite in `./run.sh --verify`.
+  Do not add interactive setup or a separate CLI.
+- Keep runtime choices in `config.yaml`, credentials in ignored `.env`,
+  implementation in `src/`, and pins in `config/`.
+- Keep one dashboard with service status and job output. Use functional labels.
+- Run applications in Docker and local inference with native Metal. Applications
+  own their data. Do not add a central application database.
+- Keep local browser and management listeners on loopback. Protect remote
+  browser access with the shared password and FIDO2 security key login.
+- Give Chat and Agent separate `sessions/chat` and `sessions/agent` directories.
+  Mount only each application's own workspace. Reject symlink escapes.
+- Load one large worker per device. Never stop a process owned by another server.
+  Preserve credentials, sessions, model pins, and upstream licenses.
+- Keep weights, caches, host details, and recovery data out of Git.
+- Keep essential setup and usage in `README.md`; do not add separate docs.
+  Public capabilities live in `config/stack.json`.
+- Run `./run.sh --verify` after changes. Engine changes also need targeted tests
+  and matched inference checks. Do not claim speed gains without measurements.
+- Work on the current branch. Do not commit, push, rewrite history, or make
   system-wide changes without explicit authorization.

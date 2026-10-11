@@ -1,7 +1,8 @@
-"""One-owner DS4 gateway. Start the selected native model on demand."""
+"""One-owner gateway. Start the selected DS4 or oMLX worker on demand."""
 import fcntl
+from datetime import datetime, timezone
 from http.client import HTTPException
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 import json
 import os
 from pathlib import Path
@@ -16,12 +17,14 @@ import urllib.error
 import urllib.request
 
 import launcher
+from http_server import BoundedHTTPServer
+from inference_usage import UsageRelay, request_usage
+from runtime_config import WORKER_PORT as BACKEND_PORT, gateway_port
 
 ROOT = Path(__file__).resolve().parents[1]
-BACKEND_PORT = 8100
 MAX_REQUEST_BYTES = 64 * 1024 * 1024
 READY_SECONDS = 240
-CHAT_ID_HEADER = 'X-Cook-Studio-Chat-Id'
+CHAT_ID_HEADER = 'X-DotAgents-Chat-Id'
 
 
 def relay_ds4_output(source, saved, terminal):
@@ -45,8 +48,10 @@ class ChatModelLock:
     def __init__(self, path):
         self.path = Path(path)
         self.chats = json.loads(self.path.read_text()) if self.path.exists() else {}
+        config = launcher.profiles()
+        known_models = set(config['models']) | set(config.get('retired_models', {}))
         if not isinstance(self.chats, dict) or any(
-            not isinstance(chat_id, str) or model not in ('qwen', 'deepseek')
+            not isinstance(chat_id, str) or not isinstance(model, str) or model not in known_models
             for chat_id, model in self.chats.items()
         ):
             raise ValueError('Invalid chat model lock file')
@@ -77,11 +82,13 @@ class ChatModelLock:
 class ModelGateway:
     def __init__(self, initial):
         if platform.system() != 'Darwin':
-            raise ValueError('Native DS4 Metal requires macOS.')
-        self.models = launcher.profiles()['models']
+            raise ValueError('Native Metal inference requires macOS.')
+        self.models = launcher.configured_models()
         if initial not in self.models:
-            raise ValueError('Select qwen or deepseek.')
+            raise ValueError('Select deepseek or qwen-omlx.')
         for key, model in self.models.items():
+            if model.get('optional'):
+                continue
             launcher.check_revision(ROOT / model['source'], model['revision'])
             for artifact in launcher.required_artifacts(model):
                 launcher.check_artifact(artifact)
@@ -94,7 +101,7 @@ class ModelGateway:
         self.lock_file = lock_path.open('a+')
         try:
             fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            launcher.ensure_idle([BACKEND_PORT, *(m['port'] for m in self.models.values())])
+            launcher.ensure_idle([BACKEND_PORT, gateway_port(ROOT)])
         except BaseException:
             self.lock_file.close()
             raise
@@ -103,13 +110,36 @@ class ModelGateway:
         self.child = None
         self.log_thread = None
         self.request_lock = threading.Lock()
+        self.worker_lock = threading.Lock()
+        self.generating_model = None
         self.closing = False
 
+    def upstream_headers(self, key):
+        if self.models[key].get('engine') == 'omlx':
+            from omlx_backend import headers
+            return headers()
+        return {}
+
+    def record_usage(self, key, metrics):
+        """Append only engine-reported numbers to this model's private log."""
+        stamp = datetime.now(timezone.utc).isoformat(timespec='milliseconds')
+        line = f'{stamp} dotagents-speed: {json.dumps(metrics, separators=(",", ":"))}\n'
+        try:
+            descriptor = os.open(self.state / f'{key}.log', os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            try:
+                os.write(descriptor, line.encode())
+            finally:
+                os.close(descriptor)
+        except OSError:
+            pass  # Telemetry must not interrupt a chat response.
+
     def _stop_owned_child(self):
+        with self.worker_lock:
+            self._reap_owned_child()
+
+    def _reap_owned_child(self):
         child = self.child
         log_thread = self.log_thread
-        self.child = None
-        self.log_thread = None
         self.current = None
         (self.state / 'active.json').unlink(missing_ok=True)
         if child is None:
@@ -117,15 +147,19 @@ class ModelGateway:
         if child.poll() is None:
             child.terminate()
             try:
-                child.wait(timeout=45)
+                child.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 child.kill()
-                child.wait(timeout=15)
+                child.wait(timeout=2)
         if log_thread is not None:
-            log_thread.join(timeout=5)
+            log_thread.join(timeout=1)
+        # Keep ownership if termination raises, so shutdown can retry safely.
+        self.child = None
+        self.log_thread = None
 
     def _start(self, key):
         model = self.models[key]
+        print(f'Gateway: loading {model.get("name", key)}', flush=True)
         environment = dict(os.environ)
         environment['LLM_PORT'] = str(BACKEND_PORT)
         environment['LLM_RUNTIME_ROOT'] = str(ROOT / '.local/runtime' / key)
@@ -136,27 +170,43 @@ class ModelGateway:
         args = launcher.server_args(key, model, environment)
         log = (self.state / f'{key}.log').open('ab', buffering=0)
         try:
-            child = subprocess.Popen(args, cwd=ROOT / model['source'], env=environment,
-                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                     close_fds=True)
+            with self.worker_lock:
+                if self.closing:
+                    raise RuntimeError('Gateway is shutting down')
+                child = subprocess.Popen(args, cwd=ROOT / model['source'], env=environment,
+                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                         close_fds=True)
+                self.child = child
+                self.log_thread = threading.Thread(
+                    target=relay_ds4_output, args=(child.stdout, log, sys.stdout.buffer),
+                    name=f'{key}-logs', daemon=True)
+                self.log_thread.start()
         except BaseException:
             log.close()
             raise
-        self.child = child
-        self.log_thread = threading.Thread(
-            target=relay_ds4_output, args=(child.stdout, log, sys.stdout.buffer),
-            name=f'{key}-logs', daemon=True)
-        self.log_thread.start()
         deadline = time.monotonic() + READY_SECONDS
         while time.monotonic() < deadline:
+            if self.closing:
+                raise RuntimeError('Gateway is shutting down')
             if child.poll() is not None:
                 raise RuntimeError(f'{key} exited during startup')
             try:
-                with urllib.request.urlopen(f'http://127.0.0.1:{BACKEND_PORT}/v1/models', timeout=2) as response:
+                request = urllib.request.Request(f'http://127.0.0.1:{BACKEND_PORT}/v1/models',
+                                                 headers=self.upstream_headers(key))
+                with urllib.request.urlopen(request, timeout=2) as response:
                     ids = {item['id'] for item in json.load(response)['data']}
                 if model['api_model'] in ids:
-                    (self.state / 'active.json').write_text(json.dumps({'model': key, 'pid': child.pid}) + '\n')
+                    if model.get('engine') == 'omlx':
+                        request = urllib.request.Request(f'http://127.0.0.1:{BACKEND_PORT}/health',
+                                                         headers=self.upstream_headers(key))
+                        with urllib.request.urlopen(request, timeout=2) as response:
+                            health = json.load(response)
+                        if health.get('engine_pool', {}).get('loaded_count') != 1:
+                            raise RuntimeError('oMLX did not load its pinned Qwen model')
+                    (self.state / 'active.json').write_text(json.dumps(
+                        {'model': key, 'engine': model.get('engine', 'ds4'), 'pid': child.pid}) + '\n')
                     self.current = key
+                    print(f'Gateway: loaded {model.get("name", key)}', flush=True)
                     return
             except (OSError, ValueError, KeyError):
                 pass
@@ -170,13 +220,17 @@ class ModelGateway:
             raise RuntimeError('Gateway is shutting down')
         if self.current == key and self.child and self.child.poll() is None:
             return
+        if self.models[key].get('engine') == 'omlx':
+            # Validate optional installation before releasing a working DS4 worker.
+            from omlx_backend import validate
+            validate(self.models[key])
         previous = self.current
         self._stop_owned_child()
         try:
             self._start(key)
         except BaseException:
             self._stop_owned_child()
-            if previous and previous != key:
+            if previous and previous != key and not self.closing:
                 try:
                     self._start(previous)
                 except Exception:
@@ -185,13 +239,16 @@ class ModelGateway:
 
     def shutdown(self):
         self.closing = True
+        # Interrupt upstream inference before waiting for its request lock.
+        # Otherwise a stalled response can hold shutdown for the full HTTP timeout.
+        self._stop_owned_child()
         with self.request_lock:
             self._stop_owned_child()
             (self.state / 'active.json').unlink(missing_ok=True)
         self.lock_file.close()
 
 
-def make_handler(manager, key):
+def make_handler(manager):
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.0'
 
@@ -209,14 +266,19 @@ def make_handler(manager, key):
 
         def do_GET(self):
             if self.path == '/v1/models':
-                model_id = manager.models[key]['api_model']
                 self.send_json(200, {'object': 'list', 'data': [
-                    {'id': model_id, 'name': manager.models[key]['name'],
-                     'object': 'model', 'owned_by': 'cook-studio',
+                    {'id': model['api_model'], 'name': model['name'],
+                     'engine': model.get('engine', 'ds4'),
+                     'object': 'model', 'owned_by': 'dotagents',
                      'info': {'meta': {'capabilities': {
-                         'vision': key == 'qwen', 'file_upload': True}}}}]})
+                         'vision': bool(model.get('vision_encoder') or model.get('vision')),
+                         'file_upload': True}}}} for model in manager.models.values()]})
             elif self.path == '/health':
-                self.send_json(200, {'gateway': 'ready', 'active_model': manager.current})
+                child = getattr(manager, 'child', None)
+                current = manager.current if child is not None and child.poll() is None else None
+                self.send_json(200, {'gateway': 'ready', 'active_model': current,
+                                    'generating_model': getattr(manager, 'generating_model', None)
+                                    if current is not None else None})
             else:
                 self.send_json(404, {'error': 'Unknown endpoint'})
 
@@ -234,38 +296,59 @@ def make_handler(manager, key):
                 if not isinstance(payload, dict):
                     raise ValueError('Invalid request body')
                 requested = payload.get('model')
-                if requested and requested != manager.models[key]['api_model']:
-                    # Old Qwen chat IDs remain valid in saved chat histories.
-                    if key != 'qwen' or requested not in (
-                        'qwen3.8-flash-next-chat', 'qwen3.8-flash-next-reasoner'):
-                        raise ValueError('Model does not match this endpoint')
+                key = next((key for key, model in manager.models.items()
+                            if model['api_model'] == requested), None)
+                if key is None:
+                    raise ValueError('Specify an enabled model ID from /v1/models.')
                 with manager.request_lock:
-                    chat_id = self.headers.get(CHAT_ID_HEADER, '').strip()
+                    # Accept clients that still use the previous project name.
+                    chat_id = self.headers.get(
+                        CHAT_ID_HEADER, self.headers.get('X-SealedLLM-Chat-Id',
+                        self.headers.get('X-Cook-Studio-Chat-Id', ''))).strip()
                     if len(chat_id) > 256:
                         raise ValueError('Invalid chat ID')
                     locked_model = manager.chat_models.model_for(chat_id)
                     if locked_model and locked_model != key:
-                        current = 'Qwen 3.8 Flash Next' if locked_model == 'qwen' else 'DeepSeek V4 Flash'
+                        current = manager.models.get(locked_model, {}).get('name')
+                        if current is None:
+                            current = launcher.profiles().get('retired_models', {}).get(
+                                locked_model, locked_model) + ' (removed)'
                         self.send_json(409, {'error': {'message':
-                            f'This chat uses {current}. Start a new chat to use the other model.'}})
+                            f'This chat uses {current}. Start a new chat to use another model or engine.'}})
                         return
                     manager.ensure_loaded(key)
                     manager.chat_models.bind(chat_id, key)
-                    self.forward(body)
+                    manager.generating_model = key
+                    try:
+                        self.forward(body, key)
+                    finally:
+                        manager.generating_model = None
             except ValueError as error:
                 self.send_json(400, {'error': str(error)})
             except (OSError, HTTPException, RuntimeError, subprocess.SubprocessError) as error:
-                self.send_json(503, {'error': f'{key} could not start or answer: {error}'})
+                self.send_json(503, {'error': f'Model could not start or answer: {error}'})
 
-        def forward(self, body):
+        def forward(self, body, key):
+            headers = {'Content-Type': 'application/json'}
+            models = getattr(manager, 'models', {})
+            omlx = isinstance(models, dict) and models.get(key, {}).get('engine') == 'omlx'
+            hide_usage = False
+            if omlx:
+                body, hide_usage = request_usage(body)
+            if manager is not None and hasattr(manager, 'upstream_headers'):
+                headers.update(manager.upstream_headers(key))
             request = urllib.request.Request(
                 f'http://127.0.0.1:{BACKEND_PORT}{self.path}', data=body,
-                headers={'Content-Type': 'application/json'}, method='POST')
+                headers=headers, method='POST')
             try:
                 upstream = urllib.request.urlopen(request, timeout=600)
             except urllib.error.HTTPError as error:
                 upstream = error
             with upstream:
+                relay = (UsageRelay(
+                    upstream.headers.get('Content-Type', '').startswith('text/event-stream'),
+                    lambda metrics: manager.record_usage(key, metrics), hide_usage)
+                    if omlx and upstream.status == 200 else None)
                 try:
                     self.send_response(upstream.status)
                     self.send_header('Content-Type', upstream.headers.get('Content-Type', 'application/json'))
@@ -273,8 +356,15 @@ def make_handler(manager, key):
                     self.send_header('Connection', 'close')
                     self.end_headers()
                     while chunk := upstream.read1(32768):
-                        self.wfile.write(chunk)
-                        self.wfile.flush()
+                        chunk = relay.feed(chunk) if relay else chunk
+                        if chunk:
+                            self.wfile.write(chunk)
+                            self.wfile.flush()
+                    if relay:
+                        remainder = relay.finish()
+                        if remainder:
+                            self.wfile.write(remainder)
+                            self.wfile.flush()
                 except (OSError, HTTPException):
                     # Headers may already be on the wire. End the incomplete
                     # response without appending a second HTTP response.
@@ -282,29 +372,41 @@ def make_handler(manager, key):
     return Handler
 
 
-def main():
-    initial = sys.argv[1] if len(sys.argv) > 1 else 'qwen'
-    gateway = ModelGateway(initial)
-    listeners = []
+def main(initial=None, gateway=None):
+    initial, _ = launcher.model_profile(initial or (sys.argv[1] if len(sys.argv) > 1 else None))
+    gateway = gateway or ModelGateway(initial)
+    server = None
+    thread = None
+    serving = False
     stopping = threading.Event()
     try:
-        for key, model in gateway.models.items():
-            server = ThreadingHTTPServer(('127.0.0.1', model['port']), make_handler(gateway, key))
-            server.daemon_threads = True
-            listeners.append(server)
-        for server in listeners:
-            threading.Thread(target=server.serve_forever, daemon=True).start()
+        server = BoundedHTTPServer(('127.0.0.1', gateway_port(ROOT)), make_handler(gateway),
+                                  client_timeout=10)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        serving = True
+        def stop(_signal, _frame):
+            gateway.closing = True
+            stopping.set()
         for signal_name in (signal.SIGTERM, signal.SIGINT):
-            signal.signal(signal_name, lambda _signal, _frame: stopping.set())
-        with gateway.request_lock:
-            gateway.ensure_loaded(initial)
+            signal.signal(signal_name, stop)
+        try:
+            with gateway.request_lock:
+                gateway.ensure_loaded(initial)
+        except RuntimeError:
+            if not gateway.closing:
+                raise
         while not stopping.wait(1):
             pass
     finally:
-        for server in listeners:
+        if serving:
             server.shutdown()
+        if server is not None:
             server.server_close()
+        if serving:
+            thread.join()
         gateway.shutdown()
+        print('Gateway: stopped', flush=True)
 
 
 if __name__ == '__main__':

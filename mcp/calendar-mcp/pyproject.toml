@@ -1,0 +1,34 @@
+[project]
+name = "calendar-mcp"
+version = "0.1.0"
+description = "Read-only Apple Calendar MCP through the public macOS EventKit API"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=1.20,<2",
+    "pydantic>=2.11,<3",
+    "pyobjc-framework-EventKit>=11,<13; sys_platform == 'darwin'",
+]
+
+[project.scripts]
+calendar-mcp = "calendar_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/calendar_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[dependency-groups]
+dev = ["pytest>=9.1.1", "pytest-asyncio>=1.4.0", "ruff>=0.16.10"]

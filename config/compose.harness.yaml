@@ -1,0 +1,101 @@
+name: dotagents
+services:
+  chat: &harness
+    image: dotagents-harness:0.2.0-rc.2
+    build:
+      context: ..
+      dockerfile: config/harness.Dockerfile
+    init: true
+    restart: unless-stopped
+    read_only: true
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      HARNESS_ROLE: chat
+      DOTAGENTS_THINGS_TOKEN: ${DOTAGENTS_THINGS_TOKEN:-}
+      DOTAGENTS_CALENDAR_ENABLED: ${DOTAGENTS_CALENDAR_ENABLED:-false}
+      DOTAGENTS_CALENDAR_TOKEN: ${DOTAGENTS_CALENDAR_TOKEN:-}
+      HARNESS_PUBLIC_HOST: ${FUNNEL_HOSTNAME:-}
+      DOTAGENTS_LOCAL_PLACEHOLDER: unused
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
+    volumes:
+      - type: bind
+        source: ../sessions/chat
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../sessions/chat/workspace
+        target: /workspace
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../.local/harness
+        target: /run/dotagents
+        read_only: true
+        bind:
+          create_host_path: false
+    # The pinned native loader unpacks its shared library into /tmp.
+    tmpfs: ["/tmp:rw,exec,nosuid,size=1g,mode=1777"]
+    pids_limit: 512
+    ports: ["127.0.0.1:3002:3081"]
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:3081/_dotagents/status"]
+      interval: 10s
+      timeout: 3s
+      start_period: 60s
+      retries: 6
+  agent:
+    <<: *harness
+    ports: ["127.0.0.1:3003:3081"]
+    environment:
+      HARNESS_ROLE: agent
+      HARNESS_PUBLIC_HOST: ${FUNNEL_HOSTNAME:-}
+      DOTAGENTS_LOCAL_PLACEHOLDER: unused
+    volumes:
+      - type: bind
+        source: ../sessions/agent
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../sessions/agent/workspace
+        target: /workspace
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../.local/harness
+        target: /run/dotagents
+        read_only: true
+        bind:
+          create_host_path: false
+  caddy:
+    environment:
+      FUNNEL_HOSTNAME: ${FUNNEL_HOSTNAME:-localhost}
+    image: caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    ports: ["127.0.0.1:3000:8080"]
+    volumes:
+      - ../config/Caddyfile.harness:/etc/caddy/Caddyfile:ro
+      - ../src/service_dashboard:/srv/dashboard:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      chat:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+volumes:
+  caddy-data:
+  caddy-config:

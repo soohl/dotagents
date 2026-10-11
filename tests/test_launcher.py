@@ -2,8 +2,6 @@
 import copy
 import hashlib
 import importlib.util
-import io
-import json
 from pathlib import Path
 import socket
 import subprocess
@@ -18,60 +16,30 @@ spec.loader.exec_module(runner)
 
 
 class LauncherTests(unittest.TestCase):
-    def test_download_repairs_invalid_files_and_keeps_valid_files(self):
-        for existing in (None, b'bad', b'evil', b'good'):
-            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as folder:
-                path = Path(folder) / 'weights.gguf'
-                if existing is not None:
-                    path.write_bytes(existing)
-                artifact = {'path': path.name, 'size': 4,
-                            'sha256': hashlib.sha256(b'good').hexdigest()}
-                model = {'repository': 'test/model', 'weights_revision': 'pinned',
-                         'artifacts': [artifact]}
-                with patch.object(runner, 'ROOT', Path(folder)), \
-                        patch.object(runner.shutil, 'which', return_value='hf'), \
-                        patch.object(runner, 'command', side_effect=lambda args: path.write_bytes(b'good')) as command, \
-                        patch('sys.stdout', new_callable=io.StringIO):
-                    runner.download(model)
-                if existing == b'good':
-                    command.assert_not_called()
-                else:
-                    args = ['hf', 'download', 'test/model', path.name,
-                            '--revision', 'pinned', '--local-dir', folder]
-                    if existing is not None:
-                        args.append('--force-download')
-                    command.assert_called_once_with(args)
-                self.assertEqual(path.read_bytes(), b'good')
 
-    def test_download_rejects_invalid_replacement(self):
-        with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / 'weights.gguf'
-            path.write_bytes(b'evil')
-            model = {'repository': 'test/model', 'weights_revision': 'pinned',
-                     'artifacts': [{'path': path.name, 'size': 4,
-                                    'sha256': hashlib.sha256(b'good').hexdigest()}]}
-            with patch.object(runner, 'ROOT', Path(folder)), \
-                    patch.object(runner.shutil, 'which', return_value='hf'), \
-                    patch.object(runner, 'command'), \
-                    self.assertRaisesRegex(ValueError, 'checksum mismatch'):
-                runner.download(model)
 
     def test_discovery_from_another_directory(self):
-        result = subprocess.run([str(ROOT / 'run.sh'), 'list'], cwd='/tmp',
-                                capture_output=True, text=True, check=True)
-        self.assertEqual(len(result.stdout.splitlines()), 2)
-        self.assertIn('Qwen 3.8 Flash Next', result.stdout)
-        self.assertIn('DeepSeek V4 Flash', result.stdout)
+        with tempfile.TemporaryDirectory() as folder:
+            link = Path(folder) / 'dotagents'
+            link.symlink_to(ROOT / 'run.sh')
+            result = subprocess.run([str(link), '--help'], cwd='/tmp',
+                                    capture_output=True, text=True, check=True)
+        self.assertIn('--verify', result.stdout)
+        self.assertIn('verification', result.stdout)
+        self.assertNotIn('serve-restart', result.stdout)
+
 
     def test_only_supported_models_and_pinned_artifacts(self):
         config = runner.profiles()
-        self.assertEqual(set(config['models']), {'qwen', 'deepseek'})
-        self.assertEqual(config['models']['qwen']['api_model'], 'qwen3.8-flash-next')
+        self.assertEqual(set(config['models']), {'deepseek', 'qwen-omlx'})
+        self.assertEqual(runner.model_profile(None)[0], 'qwen-omlx')
+        self.assertEqual(runner.model_profile('qwen')[0], 'qwen-omlx')
+        self.assertEqual([key for key, model in config['models'].items() if model['engine'] == 'ds4'], ['deepseek'])
         self.assertEqual(config['models']['deepseek']['api_model'], 'deepseek-v4-flash')
         for model in config['models'].values():
             self.assertRegex(model['revision'], r'^[0-9a-f]{40}$')
             self.assertRegex(model['weights_revision'], r'^[0-9a-f]{40}$')
-            self.assertEqual(model['context'], 65536)
+            self.assertEqual(model['context'], 131072)
             for artifact in runner.required_artifacts(model):
                 self.assertRegex(artifact['sha256'], r'^[0-9a-f]{64}$')
                 self.assertGreater(artifact['size'], 0)
@@ -85,6 +53,8 @@ class LauncherTests(unittest.TestCase):
         entry = subprocess.check_output(['git', 'ls-files', '-s', 'backends/ds4'],
                                         cwd=ROOT, text=True).split()
         for model in runner.profiles()['models'].values():
+            if model.get('engine') == 'omlx':
+                continue
             self.assertEqual(model['source'], 'backends/ds4')
             self.assertEqual(entry[:2], ['160000', model['revision']])
         self.assertNotIn('omlx', (ROOT / '.gitmodules').read_text())
@@ -104,42 +74,38 @@ class LauncherTests(unittest.TestCase):
             path.write_bytes(b'good')
             self.assertEqual(runner.check_artifact(artifact, checksum=True), path)
 
-    def test_qwen_native_weights_cache_and_arguments(self):
-        model = copy.deepcopy(runner.profiles()['models']['qwen'])
+    def test_deepseek_native_weights_cache_and_arguments(self):
+        model = copy.deepcopy(runner.profiles()['models']['deepseek'])
         self.assertEqual(len(model['artifacts']), 1)
-        self.assertNotIn('DS4_QWEN4_PLE_PREFETCH_FULL', model.get('environment', {}))
+        self.assertEqual(model['engine'], 'ds4')
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, 'ROOT', Path(folder)):
             for index, artifact in enumerate(runner.required_artifacts(model)):
                 artifact.update(path=f'{index}.gguf', size=1)
                 (Path(folder) / artifact['path']).write_bytes(b'x')
-            args = runner.server_args('qwen', model, {})
-            self.assertEqual(args[args.index('--vision')+1], str(Path(folder) / '1.gguf'))
+            args = runner.server_args('deepseek', model, {})
+            self.assertNotIn('--vision', args)
             self.assertNotIn('--ple', args)
-            self.assertEqual(args[args.index('--port')+1], '8000')
+            self.assertEqual(args[args.index('--port')+1], '8100')
             self.assertEqual(args[args.index('--host')+1], '127.0.0.1')
-            self.assertEqual(args[args.index('--prefill-chunk')+1], '8192')
+            self.assertEqual(args[args.index('--prefill-chunk')+1], '4096')
             self.assertNotIn('--dspark', args)
             self.assertNotIn('--batched-session', args)
-            self.assertEqual(args[args.index('--kv-cache-cold-max-tokens')+1], '65536')
+            self.assertEqual(args[args.index('--kv-cache-cold-max-tokens')+1], '131072')
             self.assertEqual(args[args.index('--kv-cache-boundary-align-tokens')+1], '256')
             self.assertIn('--kv-cache-reject-different-quant', args)
             cache = Path(args[args.index('--kv-disk-dir')+1])
             self.assertEqual(cache.stat().st_mode & 0o777, 0o700)
-            args = runner.server_args('qwen', model, {'LLM_DISABLE_PROMPT_CACHE':'1'})
+            args = runner.server_args('deepseek', model, {'LLM_DISABLE_PROMPT_CACHE':'1'})
             self.assertNotIn('--kv-disk-dir', args)
             (Path(folder) / model['artifacts'][0]['path']).unlink()
             with self.assertRaises(ValueError):
-                runner.server_args('qwen', model, {})
-            (Path(folder) / model['artifacts'][0]['path']).write_bytes(b'x')
-            (Path(folder) / model['vision_encoder']['path']).unlink()
-            with self.assertRaises(ValueError):
-                runner.server_args('qwen', model, {})
+                runner.server_args('deepseek', model, {})
 
     def test_context_and_port_bounds(self):
-        for value in ['0', '1', '65537', '-1', 'bad']:
+        for value in ['0', '1', '131073', '-1', 'bad']:
             with self.assertRaises(ValueError):
-                runner.integer_setting({'LLM_CTX':value}, 'LLM_CTX', 65536, 2, 65536)
-        self.assertEqual(runner.integer_setting({}, 'LLM_CTX', 65536, 2, 65536), 65536)
+                runner.integer_setting({'LLM_CTX':value}, 'LLM_CTX', 131072, 2, 131072)
+        self.assertEqual(runner.integer_setting({}, 'LLM_CTX', 131072, 2, 131072), 131072)
 
     def test_existing_listener_is_not_stopped(self):
         with patch.object(socket.socket, 'connect_ex', return_value=0), \

@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class RepositoryTests(unittest.TestCase):
     def test_private_paths_are_ignored(self):
-        for path in ['.env', '.env.backup', 'docs/notes.md', '.local/token',
+        for path in ['.env', '.env.backup', 'docs/notes.md', 'mcp/mcp-things-3/docs/notes.md',
+                     '.local/token', 'worker.pid', 'worker.pid.lock',
                      'models/weights.gguf', 'build/cache', 'results/run.json',
                      'benchmarks/run.json', 'private.key', 'private.pfx',
                      'webui.db', 'webui.db-wal', 'chat.sqlite', 'chat.sqlite-shm',

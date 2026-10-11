@@ -1,0 +1,185 @@
+{
+  "schema_version": 2,
+  "name": "DotAgents",
+  "device_mode": "independent_servers",
+  "interface": "tui",
+  "monitoring": {
+    "local_hardware": "available",
+    "remote_hardware": "available",
+    "remote_exporter": "integrated_node_api_or_legacy_exporter",
+    "peer_configuration": "tailscale_gateway_discovery",
+    "history": "memory_only",
+    "remote_management": false,
+    "node_catalog": "available",
+    "inference_model_source": "live_api_advertisements",
+    "node_configuration": "shared_gateway_port"
+  },
+  "inference": {
+    "local_runtime": "native",
+    "remote_discovery": "tailscale_gateway",
+    "remote_nodes": "optional"
+  },
+  "network": {
+    "default": "private_tailnet",
+    "discovery_implies_trust": false,
+    "public_funnel_by_default": false,
+    "plaintext_lan_fallback": false,
+    "status": "available",
+    "gateway_discovery": "online_tailscale_peers_with_valid_api"
+  },
+  "identity": {
+    "provider": "authelia",
+    "methods": [
+      "password_webauthn"
+    ],
+    "scope": "shared_browser_entry",
+    "status": "available"
+  },
+  "imports": {
+    "cook-4090": {
+      "repository": "https://github.com/soohl/cook-4090.git",
+      "revision": "4a9eb69efbcc8427cd6dcf96bfc45d2f0c74150a",
+      "license": "Apache-2.0",
+      "status": "image_ui_imported"
+    }
+  },
+  "models": [
+    {
+      "id": "deepseek",
+      "name": "DeepSeek V4 Flash 0731",
+      "kind": "chat",
+      "engine": "ds4",
+      "platform": "mac-metal",
+      "model_ref": "deepseek",
+      "status": "available",
+      "runtime": "native"
+    },
+    {
+      "id": "qwen-omlx",
+      "name": "Qwen 3.8 Flash Next",
+      "kind": "chat",
+      "engine": "omlx",
+      "platform": "mac-metal",
+      "model_ref": "qwen-omlx",
+      "status": "available",
+      "runtime": "native"
+    }
+  ],
+  "deployment": {
+    "applications": "docker",
+    "inference": {
+      "mac-metal": "native",
+      "linux-cuda": "docker"
+    },
+    "application_state": "service_owned",
+    "router_database": false,
+    "host": "macos",
+    "remote_nodes": "optional"
+  },
+  "services": [
+    {
+      "id": "chat",
+      "name": "Chat",
+      "role": "application",
+      "runtime": "docker",
+      "status": "available",
+      "compose_service": "chat",
+      "state_owner": "Chat Harness",
+      "retains": [
+        "sessions",
+        "attachments",
+        "settings"
+      ],
+      "source_repository": "https://github.com/deepseek-ai/deepseek-harness",
+      "version": "0.2.0-rc.2",
+      "detail": "Owns Chat sessions and workspace. Supports web search, page reading, optional Things tools, and optional read-only Apple Calendar tools. No shell or file editing.",
+      "integrations": {
+        "calendar": {
+          "status": "available",
+          "default_enabled": false,
+          "runtime": "native-macos-eventkit",
+          "read_only": true,
+          "tools": ["calendar_capabilities", "calendar_health", "calendar_list_calendars", "calendar_list_events"]
+        }
+      }
+    },
+    {
+      "id": "agent",
+      "name": "Agent",
+      "role": "application",
+      "runtime": "docker",
+      "status": "available",
+      "compose_service": "agent",
+      "state_owner": "Agent Harness",
+      "retains": [
+        "sessions",
+        "attachments",
+        "settings"
+      ],
+      "source_repository": "https://github.com/deepseek-ai/deepseek-harness",
+      "version": "0.2.0-rc.2",
+      "detail": "Owns Agent sessions and workspace. Runs file, shell, browser, and delegation tools inside its container."
+    },
+    {
+      "id": "image-workflows",
+      "name": "Image",
+      "role": "application",
+      "runtime": "docker",
+      "status": "available",
+      "state_owner": "Image workspace",
+      "retains": [
+        "sessions",
+        "prompts",
+        "settings",
+        "references",
+        "masks",
+        "outputs"
+      ],
+      "detail": "Optional Image workspace. Uses a discovered Image API and owns saved images, references, and settings.",
+      "compose_service": "image-web"
+    },
+    {
+      "id": "tailscale",
+      "name": "Tailscale",
+      "role": "network",
+      "runtime": "docker",
+      "status": "available",
+      "compose_service": "tailscale",
+      "state_owner": "Tailscale",
+      "retains": [
+        "node identity"
+      ],
+      "detail": "Optional dedicated node for browser access. Keeps its identity separate from the host Tailscale client."
+    },
+    {
+      "id": "caddy",
+      "name": "Caddy",
+      "role": "network",
+      "runtime": "docker",
+      "status": "available",
+      "compose_service": "caddy",
+      "state_owner": "Caddy",
+      "retains": [
+        "certificates",
+        "configuration"
+      ],
+      "detail": "Loopback browser gateway. Optional remote routes share Authelia authentication."
+    },
+    {
+      "id": "authelia",
+      "name": "Authelia",
+      "role": "identity",
+      "runtime": "docker",
+      "status": "available",
+      "state_owner": "Authelia",
+      "retains": [
+        "identities",
+        "password hashes",
+        "security keys"
+      ],
+      "compose_service": "authelia",
+      "version": "4.39.28",
+      "detail": "Optional shared password and FIDO2 security key login. Owns account and identity storage; no published host port."
+    }
+  ]
+}

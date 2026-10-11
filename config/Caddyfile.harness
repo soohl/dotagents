@@ -1,0 +1,67 @@
+{
+	admin off
+	auto_https disable_redirects
+}
+(browser_services) {
+	@dashboard path / /dashboard-assets/*
+	handle @dashboard {
+		root * /srv/dashboard
+		uri strip_prefix /dashboard-assets
+		header Content-Security-Policy "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
+		header Cache-Control "no-cache"
+		file_server
+	}
+	redir /chat /chat/ 308
+	redir /agent /agent/ 308
+	redir /images /images/ 308
+	handle_path /chat/* {
+		reverse_proxy chat:3081 {
+			flush_interval -1
+		}
+	}
+	handle_path /agent/* {
+		reverse_proxy agent:3081 {
+			flush_interval -1
+		}
+	}
+	handle_path /images/* {
+		reverse_proxy image-web:8080 {
+			header_up Host 127.0.0.1:8080
+			header_up Origin http://127.0.0.1:8080
+		}
+	}
+	# Dashboard management and legacy API routes use the Agent instance.
+	handle {
+		reverse_proxy agent:3081 {
+			flush_interval -1
+		}
+	}
+}
+:8081 {
+	bind 127.0.0.1
+	route {
+		@management path /_dotagents /_dotagents/* /chat/_dotagents /chat/_dotagents/* /agent/_dotagents /agent/_dotagents/*
+		respond @management "Forbidden" 403
+		@foreignOrigin expression `{http.request.header.Origin} != "" && {http.request.header.Origin} != "https://{$FUNNEL_HOSTNAME}"`
+		respond @foreignOrigin "Forbidden" 403
+		import browser_services
+	}
+}
+import /etc/caddy/remote.d/*.caddy
+:8080 {
+	route {
+		@health path /health
+		respond @health "ok" 200
+		@foreign not host localhost 127.0.0.1
+		respond @foreign "Forbidden" 403
+		@foreignOrigin expression `{http.request.header.Origin} != "" && {http.request.header.Origin} != ("http://" + {http.request.hostport})`
+		respond @foreignOrigin "Forbidden" 403
+		header {
+			X-Content-Type-Options nosniff
+			Referrer-Policy same-origin
+			X-Frame-Options SAMEORIGIN
+			-Server
+		}
+		import browser_services
+	}
+}

@@ -1,0 +1,38 @@
+{
+  "version": "0.7.0",
+  "python": ".venv/bin/python",
+  "executable": ".venv/bin/omlx",
+  "base_path": ".local/runtime/qwen-omlx/omlx",
+  "model_root": "models/Qwen3.8-Flash-Next-oMLX",
+  "settings": {
+    "version": 1,
+    "models": {
+      "Qwen3.8-Flash-Next-oQ4e-mtp": {
+        "model_alias": "qwen3.8-flash-next-omlx",
+        "max_context_window": 131072,
+        "qwen4_ple_ssd_offload": true,
+        "mtp_enabled": true,
+        "is_pinned": true
+      }
+    }
+  },
+  "hot_cache_max_size": "8GB",
+  "ssd_cache_max_size": "32GB",
+  "memory_guard": "balanced",
+  "max_concurrent_requests": 1,
+  "wheel": {
+    "path": ".local/engines/wheels/omlx-0.7.0-cp311-cp311-macosx_15_0_universal2.whl",
+    "url": "https://github.com/jundot/omlx/releases/download/v0.7.0/omlx-0.7.0-cp311-cp311-macosx_15_0_universal2.whl",
+    "size": 39571729,
+    "sha256": "a25b0fbf86579512ced2a45b9aba420a51e6e8f3ee9ea3832ea1b9111d2cc4a7"
+  },
+  "runtime_settings": {
+    "usage": {
+      "usage_history": false
+    },
+    "auth": {
+      "allow_unauthenticated_inference": true,
+      "skip_api_key_verification": true
+    }
+  }
+}

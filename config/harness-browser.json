@@ -1,0 +1,18 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": {
+      "headless": true,
+      "channel": "chromium",
+      "chromiumSandbox": false,
+      "args": ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+    },
+    "contextOptions": {"viewport": {"width": 1280, "height": 800}},
+    "initScript": ["/app/browser-init.js"]
+  },
+  "imageResponses": "omit",
+  "console": {"level": "info"},
+  "timeouts": {"action": 10000, "navigation": 30000},
+  "outputDir": ".browser-artifacts"
+}

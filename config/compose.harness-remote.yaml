@@ -1,0 +1,47 @@
+# Append to compose.harness.yaml for shared browser authentication.
+services:
+  tailscale:
+    extends:
+      file: compose.tailscale.yaml
+      service: tailscale
+    ports: ["127.0.0.1:3000:8080"]
+  authelia:
+    image: authelia/authelia:4.39.28@sha256:bd97cff4fcbf715b5ff1f9ae286afbe6033afce385302520b0368122d43a6f54
+    command: [authelia, --config=/config/configuration.yml, --config.experimental.filters=template]
+    restart: unless-stopped
+    read_only: true
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      FUNNEL_HOSTNAME: ${FUNNEL_HOSTNAME:?Set FUNNEL_HOSTNAME in .env}
+      AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET:?Set the required value in the private root .env}
+      AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY:?Set the required value in the private root .env}
+      AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET: ${AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET:?Set the required value in the private root .env}
+    volumes:
+      - ./authelia.yml:/config/configuration.yml:ro
+      - authelia-data:/data
+    tmpfs: ["/tmp:rw,nosuid,noexec,size=64m,mode=1777"]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:9091/api/health]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+  caddy:
+    network_mode: service:tailscale
+    ports: !reset []
+    environment:
+      FUNNEL_HOSTNAME: ${FUNNEL_HOSTNAME:?Set FUNNEL_HOSTNAME in .env}
+    volumes:
+      - ./Caddyfile.harness-remote:/etc/caddy/remote.d/access.caddy:ro
+      - tailscale-socket:/var/run/tailscale:ro
+    depends_on:
+      tailscale:
+        condition: service_healthy
+        restart: true
+      authelia:
+        condition: service_healthy
+volumes:
+  tailscale-socket:
+  authelia-data:

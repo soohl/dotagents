@@ -1,0 +1,12 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": {"headless": true, "chromiumSandbox": false},
+    "contextOptions": {"acceptDownloads": false, "serviceWorkers": "block"}
+  },
+  "webmcp": false,
+  "imageResponses": "omit",
+  "timeouts": {"action": 10000, "navigation": 30000},
+  "outputDir": "/tmp/chat-browser-artifacts"
+}

@@ -1,0 +1,3 @@
+-r tui-requirements.txt
+-r image-web-requirements.txt
+httpx2==2.13.1

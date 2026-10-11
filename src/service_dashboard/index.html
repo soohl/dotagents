@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>DotAgents · Services</title>
+  <link rel="icon" href="/dashboard-assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/dashboard-assets/dashboard.css">
+  <script src="/dashboard-assets/dashboard.js" defer></script>
+</head>
+<body>
+  <header class="header"><a class="brand" href="/" aria-label="DotAgents home"><img src="/dashboard-assets/icon.svg" alt="" width="32" height="32"><span>DotAgents</span></a><span class="address" id="gateway-address"></span></header>
+  <main>
+    <div class="heading"><div><p class="eyebrow">WORKSPACE</p><h1>Services</h1></div><span class="count">3 services</span></div>
+    <nav class="services" aria-label="Services">
+      <a class="card chat" href="/chat/" aria-label="Open Chat">
+        <div class="card-top"><span class="logo"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M8 7h16a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H13l-7 5V10a3 3 0 0 1 2-3Z"/><path d="M12 13h9m-9 5h6"/></svg></span><span class="arrow" aria-hidden="true">↗</span></div>
+        <h2>Chat</h2><p class="description">Conversations, web search, and page reading.</p><div class="card-bottom"><span class="provider">DeepSeek Harness</span><span class="url" data-path="/chat/">/chat/</span></div>
+      </a>
+      <a class="card agent" href="/agent/" aria-label="Open Agent">
+        <div class="card-top"><span class="logo"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="4" y="6" width="24" height="21" rx="4"/><path d="m10 13 4 4-4 4m8 0h5M16 2v4"/></svg></span><span class="arrow" aria-hidden="true">↗</span></div>
+        <h2>Agent</h2><p class="description">Work with files, code, and browser tools.</p><div class="card-bottom"><span class="provider">DeepSeek Harness</span><span class="url" data-path="/agent/">/agent/</span></div>
+      </a>
+      <a class="card images" href="/images/" aria-label="Open Image generation">
+        <div class="card-top"><span class="logo"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="4" y="4" width="24" height="24" rx="4"/><circle cx="12" cy="12" r="2.5"/><path d="m5 25 8-8 5 5 4-5 6 7"/></svg></span><span class="arrow" aria-hidden="true">↗</span></div>
+        <h2>Image generation</h2><p class="description">Generate images and edit saved work.</p><div class="card-bottom"><span class="provider">Image workspace</span><span class="url" data-path="/images/">/images/</span></div>
+      </a>
+    </nav>
+  </main>
+  <footer><span>DotAgents</span><span id="access-label">Service dashboard</span></footer>
+</body>
+</html>

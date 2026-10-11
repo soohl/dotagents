@@ -1,0 +1,11 @@
+{
+  "model": "qwen-image-2.1",
+  "label": "Qwen-Image-2.1",
+  "sizes": ["1024x1024", "1280x768", "768x1280", "1536x1024", "1024x1536", "512x512"],
+  "steps": 25,
+  "max_steps": 50,
+  "max_references": 10,
+  "max_body": 33554432,
+  "request_timeout": 7200,
+  "queue": 8
+}

@@ -1,0 +1,53 @@
+https://{$FUNNEL_HOSTNAME}:8443 {
+	bind 127.0.0.1
+	tls {
+		protocols tls1.3
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		X-Frame-Options SAMEORIGIN
+		-Server
+	}
+	route {
+		@management path /_dotagents /_dotagents/*
+		respond @management "Forbidden" 403
+		forward_auth authelia:9091 {
+			uri /api/authz/forward-auth
+			header_up X-Forwarded-Host {$FUNNEL_HOSTNAME}
+			header_up X-Forwarded-Proto https
+		}
+		reverse_proxy 127.0.0.1:8081 {
+			header_up Host {$FUNNEL_HOSTNAME}
+			header_up X-Forwarded-Host {$FUNNEL_HOSTNAME}
+			header_up X-Forwarded-Proto https
+			header_up Cookie "__Secure-dotagents-authelia=[^;]+" "__Secure-dotagents-authelia=_"
+			header_down Set-Cookie "(dsh-auth-.*)" "$1; Secure"
+			flush_interval -1
+		}
+	}
+}
+https://{$FUNNEL_HOSTNAME}:9443 {
+	bind 127.0.0.1
+	tls {
+		protocols tls1.3
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		-Server
+	}
+	route {
+		@internal path /api/authz/* /api/verify /api/health /metrics /admin /admin/*
+		respond @internal "Forbidden" 403
+		reverse_proxy authelia:9091 {
+			header_up Host {$FUNNEL_HOSTNAME}:8443
+			header_up X-Forwarded-Host {$FUNNEL_HOSTNAME}:8443
+			header_up X-Forwarded-Port 8443
+			header_up X-Forwarded-Proto https
+		}
+	}
+}

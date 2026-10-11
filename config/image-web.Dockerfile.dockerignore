@@ -1,0 +1,14 @@
+*
+!web/
+web/node_modules/
+web/dist/
+!src/
+!src/image_web.py
+!src/image_jobs.py
+!src/async_tasks.py
+!src/image_backend.py
+!src/image_history.py
+!src/image_edit.py
+!config/
+!config/image.json
+!config/image-web-requirements.txt

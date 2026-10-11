@@ -1,0 +1,19 @@
+# Runtime choices. Keep credentials in the ignored root .env.
+models:
+  default: qwen-omlx
+  enabled: [qwen-omlx]
+
+network:
+  # Shared local model API and remote node discovery port.
+  gateway_port: 8888
+
+applications:
+  images: false
+  remote_browser: false
+
+integrations:
+  calendar:
+    # Requires calendar read permission for the host application in macOS.
+    enabled: false
+    # Empty selects all synced calendars. Keep personal IDs out of public commits.
+    calendar_ids: []

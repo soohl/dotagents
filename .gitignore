@@ -6,7 +6,7 @@
 /build/
 /results/
 /benchmarks/
-/docs/
+docs/
 /backends/*
 !/backends/ds4/
 
@@ -14,6 +14,7 @@
 .env
 .env.*
 credentials/
+# Private Chat and Agent data and workspaces.
 sessions/
 memories/
 *.key
@@ -23,6 +24,8 @@ memories/
 *.gguf
 *.safetensors
 *.log
+*.pid
+*.pid.lock
 *.db
 *.db-*
 *.sqlite
@@ -38,3 +41,5 @@ __pycache__/
 .coverage.*
 htmlcov/
 .DS_Store
+/web/node_modules/
+/web/dist/

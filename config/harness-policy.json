@@ -1,0 +1,32 @@
+{
+  "hostContextWindow": 131072,
+  "hostMaxTokens": 16384,
+  "compaction": {
+    "auto": true,
+    "thresholdRatio": 0.8,
+    "headroomTokens": 8192,
+    "maxTokens": 4096,
+    "retainRatio": 0.16
+  },
+  "toolResultPruner": {
+    "thresholdChars": 16000,
+    "headChars": 10000,
+    "tailChars": 2000
+  },
+  "fetchMaxOutputChars": 16000,
+  "browserMaxOutputChars": 12000,
+  "agentBrowserTools": [
+    "browser_navigate",
+    "browser_navigate_back",
+    "browser_snapshot",
+    "browser_click",
+    "browser_type",
+    "browser_press_key",
+    "browser_fill_form",
+    "browser_select_option",
+    "browser_wait_for",
+    "browser_run_code_unsafe",
+    "browser_take_screenshot",
+    "browser_close"
+  ]
+}
