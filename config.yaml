@@ -2,13 +2,17 @@
 models:
   default: qwen-omlx
   enabled: [qwen-omlx]
+  # Optional cap; defaults to 262144 tokens.
+  # max_context_tokens: 262144
 
 network:
   # Shared local model API and remote node discovery port.
   gateway_port: 8888
 
 applications:
-  images: false
+  # Browser gateway only. Set false for localhost access only.
+  lan_browser: true
+  images: true
   remote_browser: false
 
 integrations:

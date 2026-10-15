@@ -9,7 +9,6 @@
     "models": {
       "Qwen3.8-Flash-Next-oQ4e-mtp": {
         "model_alias": "qwen3.8-flash-next-omlx",
-        "max_context_window": 131072,
         "qwen4_ple_ssd_offload": true,
         "mtp_enabled": true,
         "is_pinned": true

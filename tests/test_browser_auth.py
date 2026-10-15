@@ -52,6 +52,7 @@ class BrowserAuthTests(unittest.TestCase):
 
     def test_tunnel_uses_authelia_without_publishing_backends(self):
         environment = dict(os.environ, FUNNEL_HOSTNAME='test.example.ts.net',
+                           DOTAGENTS_BROWSER_BIND='127.0.0.1', DOTAGENTS_LAN_BROWSER='false',
                            **{key: 'test' for key in browser_auth.SECRET_KEYS})
         result = subprocess.run(['docker', 'compose', '--env-file', '/dev/null',
                                  '-f', str(ROOT / 'config/compose.harness.yaml'),

@@ -1,4 +1,4 @@
-"""Check Harness workspace and HTTP boundaries without live application calls."""
+"""Check Harness boundaries with unit tests and disposable application containers."""
 from pathlib import Path
 import json
 import shutil
@@ -74,10 +74,38 @@ class HarnessTests(unittest.TestCase):
                               '/workspace': str(root / 'sessions' / role / 'workspace')})
             self.assertTrue(service['read_only'])
 
+    def test_built_runtime(self):
+        source = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'config').mkdir()
+            (root / '.env').touch()
+            shutil.copyfile(source / 'config.yaml', root / 'config.yaml')
+            for name in ('models.json', 'harness-policy.json'):
+                shutil.copyfile(source / 'config' / name, root / 'config' / name)
+            with patch.object(harness_service, 'chat_endpoints', return_value=[]):
+                for role in ('chat', 'agent'):
+                    rows = harness_service.profile(root, role)
+                    if role == 'chat':
+                        rows.append({'insert': [{'id': 'dotagents-time-context',
+                            'name': '@deepseek-ai/dsh-time-context',
+                            'config': {'refreshIntervalMs': 0, 'timeZone': 'UTC'}}]})
+                    (root / (role + '-profile.json')).write_text(json.dumps(rows))
+            for script in ('chat_browser_smoke.mjs', 'harness_policy_smoke.mjs',
+                           'harness_session_model_smoke.mjs'):
+                subprocess.run(['docker', 'run', '--rm', '--entrypoint', 'node',
+                    '--tmpfs', '/data:uid=1000,gid=1000',
+                    '--tmpfs', '/workspace:uid=1000,gid=1000',
+                    '--tmpfs', '/run/dotagents:uid=1000,gid=1000',
+                    '-v', str(source / 'tests') + ':/checks:ro',
+                    '-v', str(root) + ':/seeds:ro', harness_service.IMAGE,
+                    '/checks/' + script], check=True, timeout=120)
+
     def test_context_and_tool_output_policy(self):
         if not shutil.which('node'):
             self.fail('Node.js is required for the Harness JavaScript tests')
         subprocess.run(['node', '--test', str(Path(__file__).with_name('harness_policy.test.mjs'))], check=True)
+        subprocess.run(['node', '--test', str(Path(__file__).with_name('local_clock.test.mjs'))], check=True)
 
     def test_live_model_catalog(self):
         if not shutil.which('node'):

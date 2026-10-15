@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { harnessSchema } from './mcp-schema.mjs';
 
 export function runBrowser({ config, validate, filter }) {
   const backend = spawn(process.execPath, ['/app/node_modules/@playwright/mcp/cli.js',
@@ -34,6 +35,11 @@ export function runBrowser({ config, validate, filter }) {
       const request = pending.get(response.id);
       pending.delete(response.id);
       if (response.result && request) response.result = await filter(request.method, response.result, request.params);
+      if (response.result && request?.method === 'tools/list') {
+        response.result.tools = response.result.tools.map(tool => ({
+          ...tool, inputSchema: harnessSchema(tool.inputSchema),
+        }));
+      }
       send(response);
     } catch (error) { console.error(error.message); backend.kill('SIGTERM'); process.exitCode = 1; }
   });

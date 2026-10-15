@@ -113,6 +113,8 @@ def server_args(model, environment):
     validate(model)
     config = settings()
     base = launcher.ROOT / config['base_path']
+    for entry in config['settings']['models'].values():
+        entry['max_context_window'] = model['context']
     private_json(base / 'settings.json', config['runtime_settings'])
     private_json(base / 'model_settings.json', config['settings'])
     environment.pop('OMLX_API_KEY', None)

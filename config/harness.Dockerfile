@@ -15,6 +15,7 @@ COPY config/harness-policy.json /app/policy.json
 RUN node /app/runtime/patch-browser.mjs
 RUN node /app/runtime/patch-models.mjs
 RUN node /app/runtime/patch-session-model.mjs
+RUN node /app/runtime/patch-read-only.mjs
 COPY config/harness-browser.json /app/browser.json
 COPY config/harness-chat-browser.json /app/chat-browser.json
 COPY src/harness_runtime/browser-init.js /app/browser-init.js

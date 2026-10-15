@@ -34,11 +34,14 @@ export async function readCatalog(endpoint, fetcher = fetch) {
     const meta = node ? item[field] : item;
     if (node && (!meta || !['Chat', 'Image'].includes(meta.service))) throw new Error('Invalid model capability');
     if (node && (meta.service !== 'Chat' || meta.installed !== true)) continue;
-    const context = meta.context_window ?? meta.contextWindow ?? endpoint.contextWindow;
+    const context = meta.context_window ?? meta.contextWindow ?? meta.context_length
+      ?? meta.max_context_window ?? meta.max_model_len ?? endpoint.contextWindow;
+    const limit = capacity(endpoint.maxContextWindow) ? Math.min(endpoint.maxContextWindow, 262144) : 262144;
+    const contextWindow = Math.min(capacity(context) ? context : 131072, limit);
     const vision = item.info?.meta?.capabilities?.vision === true;
     models.set(item.id, { id: item.id, name: label(meta.name) ? meta.name : item.id,
-      contextWindow: capacity(context) ? context : 131072,
-      maxTokens: Math.min(capacity(endpoint.maxTokens) ? endpoint.maxTokens : 32768, capacity(context) ? context : 131072),
+      contextWindow,
+      maxTokens: Math.min(capacity(endpoint.maxTokens) ? endpoint.maxTokens : 32768, contextWindow),
       input: vision ? ['text', 'image'] : ['text'], reasoningEfforts: { high: 'high', xhigh: 'xhigh' } });
   }
   return [...models.values()];

@@ -5,6 +5,7 @@ import http from 'node:http';
 import { Client } from '/app/node_modules/@modelcontextprotocol/client/dist/index.mjs';
 import { StdioClientTransport } from '/app/node_modules/@modelcontextprotocol/client/dist/stdio.mjs';
 import { BasicCompactionEngine } from '/app/node_modules/@deepseek-ai/dsh-compaction-basic/lib/index.js';
+import { assertSupportedJsonSchema } from '/app/node_modules/@deepseek-ai/dsh-tools/lib/index.js';
 const policy = JSON.parse(await readFile('/app/policy.json', 'utf8'));
 assert.deepEqual(BasicCompactionEngine.Config(policy.compaction), { ...policy.compaction, modelPolicies: [] });
 const server = http.createServer((req, res) => {
@@ -18,7 +19,8 @@ try {
       await client.connect(new StdioClientTransport({ command: 'node', args: ['/app/runtime/' + kind + '-browser.mjs'],
         env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: '/opt/playwright' }, stderr: 'inherit' }));
       const { tools } = await client.listTools();
-      assert.equal(tools.length, kind === 'chat' ? 4 : 12);
+      assert.equal(tools.length, kind === 'chat' ? 10 : 12);
+      for (const tool of tools) assertSupportedJsonSchema(tool.inputSchema);
       const result = await client.callTool({ name: 'browser_navigate', arguments: { url: 'http://127.0.0.1:8890' } });
       assert.notEqual(result.isError, true, JSON.stringify(result));
       assert.ok(Array.from(result.content.filter(p => p.type === 'text').map(p => p.text).join('\n')).length <= 12000);

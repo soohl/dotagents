@@ -128,7 +128,7 @@ class OmlxBackendTests(unittest.TestCase):
             self.assertEqual(settings['model_alias'], model['api_model'])
             self.assertTrue(settings['is_pinned'])
             self.assertTrue(settings['mtp_enabled'])
-            self.assertEqual(settings['max_context_window'], 131072)
+            self.assertEqual(settings['max_context_window'], 262144)
             self.assertEqual(settings_path.stat().st_mode & 0o777, 0o600)
 
     def test_missing_optional_worker_does_not_release_working_ds4(self):

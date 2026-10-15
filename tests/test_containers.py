@@ -9,12 +9,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ContainerBoundaryTests(unittest.TestCase):
-    def compose(self, images=False):
+    def compose(self, images=False, lan=False):
         command = ['docker', 'compose', '--env-file', '/dev/null',
                    '-f', str(ROOT / 'config/compose.harness.yaml')]
         if images:
             command += ['-f', str(ROOT / 'config/compose.images.yaml')]
-        environment = dict(os.environ, DOTAGENTS_REMOTE_IMAGE_URL='http://100.64.0.2:8002/v1')
+        environment = dict(os.environ, DOTAGENTS_REMOTE_IMAGE_URL='http://100.64.0.2:8002/v1',
+                           DOTAGENTS_BROWSER_BIND='0.0.0.0' if lan else '127.0.0.1',
+                           DOTAGENTS_LAN_BROWSER=str(lan).lower())
         result = subprocess.run(command + ['config', '--format', 'json'], cwd=ROOT,
                                 env=environment, capture_output=True, text=True, check=True)
         return json.loads(result.stdout)
@@ -36,3 +38,13 @@ class ContainerBoundaryTests(unittest.TestCase):
         self.assertEqual(app['volumes'][0]['type'], 'volume')
         self.assertEqual(app['volumes'][0]['target'], '/data/images')
         self.assertNotIn('devices', app)
+
+    def test_lan_access_publishes_only_the_browser_gateway(self):
+        services = self.compose(images=True, lan=True)['services']
+        for name, service in services.items():
+            for port in service.get('ports', []):
+                if name == 'caddy':
+                    self.assertEqual((port['host_ip'], port['published'], port['target']),
+                                     ('0.0.0.0', '3000', 8080))
+                else:
+                    self.assertEqual(port['host_ip'], '127.0.0.1')

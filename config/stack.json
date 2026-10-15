@@ -16,6 +16,7 @@
   },
   "inference": {
     "local_runtime": "native",
+    "max_context_tokens": 262144,
     "remote_discovery": "tailscale_gateway",
     "remote_nodes": "optional"
   },
@@ -24,6 +25,7 @@
     "discovery_implies_trust": false,
     "public_funnel_by_default": false,
     "plaintext_lan_fallback": false,
+    "trusted_lan_browser": "port_3000_without_login",
     "status": "available",
     "gateway_discovery": "online_tailscale_peers_with_valid_api"
   },
@@ -92,7 +94,7 @@
       ],
       "source_repository": "https://github.com/deepseek-ai/deepseek-harness",
       "version": "0.2.0-rc.2",
-      "detail": "Owns Chat sessions and workspace. Supports web search, page reading, optional Things tools, and optional read-only Apple Calendar tools. No shell or file editing.",
+      "detail": "Owns Chat sessions and workspace. Supports interactive browser research, read-only file access, an on-demand local clock, optional Things tools, and optional read-only Apple Calendar tools. No shell or file editing.",
       "integrations": {
         "calendar": {
           "status": "available",
@@ -163,7 +165,7 @@
         "certificates",
         "configuration"
       ],
-      "detail": "Loopback browser gateway. Optional remote routes share Authelia authentication."
+      "detail": "Browser gateway with optional trusted LAN access on port 3000. Management routes stay private. Internet routes share Authelia authentication."
     },
     {
       "id": "authelia",

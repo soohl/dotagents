@@ -75,7 +75,7 @@ def server_args(key, model, environment):
     if model.get('engine') == 'omlx':
         from omlx_backend import server_args as omlx_args
         return omlx_args(model, environment)
-    context = integer_setting(environment, 'LLM_CTX', model['context'], 2, 131072)
+    context = integer_setting(environment, 'LLM_CTX', model['context'], 2, model['context'])
     port = integer_setting(environment, 'LLM_PORT', WORKER_PORT, 1, 65535)
     chunk = integer_setting(environment, 'LLM_PREFILL_CHUNK', model['prefill_chunk'], 1, 65536)
     args = [str(ROOT / model['source'] / 'ds4-server'), '--model', str(check_artifact(model['artifacts'][0])),

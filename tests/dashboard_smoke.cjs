@@ -77,7 +77,7 @@ const deadline=setTimeout(()=>{console.error('FAIL: dashboard deadline');process
     const catalogs = {};
     for (const role of ['chat','agent']) {
       const status = await context.request.get('http://localhost:3000/'+role+'/_dotagents/status');
-      assert.equal((await status.json()).role, role);
+      assert.equal(status.status(), 403);
       for (const method of ['session/list','agentPresets/list','workspace/initializeDefault']) {
         const response = await context.request.post('http://localhost:3000/'+role+'/api/'+method, {
           data: {type:'client-request',rpcId:crypto.randomUUID(),method,

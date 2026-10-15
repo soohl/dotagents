@@ -54,6 +54,20 @@ async def upstream(method, target, body=b''):
         if method == 'GET' and target == '/health':
             response = await client.get(base.removesuffix('/v1') + '/metrics')
             if not response.is_success:
+                # A stopped worker has no metrics endpoint. Discovery stays available
+                # and can confirm that inference requests start this model on demand.
+                catalog = await client.get(base + '/models')
+                if catalog.is_success:
+                    document = catalog.json()
+                    managed = any(document.get(key, {}).get('model_management') == 'on-request'
+                                  for key in ('sealedllm', 'dotagents'))
+                    for model in document.get('data', []):
+                        state = model.get('dotagents') or model.get('sealedllm') or {}
+                        if (managed and model.get('id') == SETTINGS['model']
+                                and state.get('installed') is True and state.get('loadable') is True):
+                            return httpx.Response(200, json=dict(busy=False, queued=0, engine='diffusers',
+                                active_model=None, loaded=None, progress=None,
+                                note='The image worker starts when you submit a request.'))
                 return response
             report = response.json()
             worker = report['worker']

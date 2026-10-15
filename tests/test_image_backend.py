@@ -66,3 +66,26 @@ class BackendTests(unittest.IsolatedAsyncioTestCase):
                       'http://0.0.0.0/v1', 'http://100.64.0.2/admin'):
             with self.subTest(value=value), patch.dict(os.environ, IMAGE_API_BASE_URL=value), self.assertRaises(ValueError):
                 backend.backend_url()
+
+    async def test_cold_managed_worker_can_be_started_from_workspace(self):
+        requests = []
+        document = {'sealedllm': {'model_management': 'on-request'}, 'data': [
+            {'id': 'qwen-image-2.1', 'sealedllm': {'installed': True, 'loadable': True, 'ready': False}}]}
+        def reply(request):
+            requests.append((request.method, request.url.path))
+            return (httpx.Response(200, json=document) if request.url.path == '/v1/models'
+                    else httpx.Response(503))
+        client_type = httpx.AsyncClient
+        with patch.dict(os.environ, IMAGE_API_BASE_URL='http://100.64.0.2:8888/v1'), \
+                patch.object(backend.httpx, 'AsyncClient', side_effect=lambda **kw: client_type(transport=httpx.MockTransport(reply), **kw)):
+            result = await backend.upstream('GET', '/health')
+            self.assertEqual(result.status_code, 200)
+            self.assertIsNone(result.json()['loaded'])
+            self.assertIn('submit', result.json()['note'])
+            for field in ('installed', 'loadable'):
+                document['data'][0]['sealedllm'][field] = False
+                self.assertEqual((await backend.upstream('GET', '/health')).status_code, 503)
+                document['data'][0]['sealedllm'][field] = True
+            document['sealedllm'].clear()
+            self.assertEqual((await backend.upstream('GET', '/health')).status_code, 503)
+        self.assertTrue(all(method == 'GET' for method, _ in requests))

@@ -35,5 +35,19 @@ await patch('/app/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/clien
    'const modelSelection = useProjection("modelSelection");\n\t\t\tconst modelSeatLocked = removed || inert || !live || modelSelection?.locked === true || input?.phase === "submitting" || input?.phase === "adjudicating";'],
 ]);
 await patch('/app/node_modules/@deepseek-ai/dsh-client-ui-model-selection/lib/client.js', [
-  ['title: triggerLabel,', 'title: locked ? "Start a new conversation to use another model." : triggerLabel,'],
+  // Keep the durable selection, but display only models in the live catalog.
+  ['const showSearch = choices.length > 4;', `const noModels = choices.length === 0 && state.status === "ready";
+\t\t\t(0, react.useEffect)(() => { if (noModels) setOpen(false); }, [noModels]);
+\t\t\tconst showSearch = choices.length > 4;`],
+  ['const effortLabel = reasoning === void 0 ?', 'const effortLabel = currentChoice === void 0 ? void 0 : reasoning === void 0 ?'],
+  ['const waiting = state.current === null && state.status === "loading";',
+   'const waiting = choices.length === 0 && state.status === "loading";'],
+  ['const modelLabel = waiting ? t("trigger.loading") : currentChoice?.model.name ?? (state.current === null ? t("trigger.fallback") : `${state.current.provider}/${state.current.model}`);',
+   'const modelLabel = waiting ? t("trigger.loading") : noModels ? t("empty.models") : currentChoice?.model.name ?? t("trigger.fallback");'],
+  ['const triggerAria = waiting ?', 'const triggerAria = noModels ? modelLabel : waiting ?'],
+  ['title: triggerLabel,', 'title: noModels ? modelLabel : locked ? "Start a new conversation to use another model." : triggerLabel,'],
+  ['disabled: locked,', 'disabled: locked || noModels,'],
+  ['open && (0, react_dom.createPortal)', '!noModels && open && (0, react_dom.createPortal)'],
+  ['"empty.models": "No models available."', '"empty.models": "Inference engine is not running"'],
+  ['"empty.models": "没有可用的模型。"', '"empty.models": "推理引擎未运行"'],
 ]);

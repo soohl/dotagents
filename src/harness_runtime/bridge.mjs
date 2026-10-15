@@ -1,6 +1,23 @@
 // The application owns sessions. This bridge keeps only live observations.
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { isIP } from 'node:net';
+
+function lanHost(host) {
+  if (process.env.DOTAGENTS_LAN_BROWSER !== 'true' || !host.endsWith(':3000')) return false;
+  const address = host.slice(0, -5);
+  if (isIP(address) !== 4) return false;
+  const [a, b] = address.split('.').map(Number);
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
+function upstreamHeaders(req) {
+  // Admission checks use the original authority. Harness then receives its
+  // local authority, including a matching Origin and authority-bound cookie.
+  if (!lanHost(req.headers.host ?? '')) return req.headers;
+  return { ...req.headers, host: '127.0.0.1:3000',
+    ...(req.headers.origin ? { origin: 'http://127.0.0.1:3000' } : {}) };
+}
 
 export const inject = ['connection', 'sessionController', 'workspaceController', 'workspaceRegistry', 'agents', 'llm'];
 
@@ -80,13 +97,14 @@ export function createBridge(ctx, { port = 3081, upstreamPort = 3080, role = pro
     return reply(res, 200, { accepted: true, session: dashboardSession });
   }
   function forward(req, res, path = req.url, retry = true) {
+    const headers = upstreamHeaders(req);
     const upstream = http.request({ host: '127.0.0.1', port: upstreamPort, method: req.method,
-      path, headers: req.headers }, response => {
+      path, headers }, response => {
       // Local access or the passkey proxy admits the browser first. Exchange
       // the upstream launch token internally; never print it or send it in a URL.
       if (retry && req.method === 'GET' && req.url === '/' && response.statusCode === 401) {
         response.resume();
-        const url = new URL(ctx.connection.authenticatedUrl(`http://${req.headers.host}/`));
+        const url = new URL(ctx.connection.authenticatedUrl(`http://${headers.host}/`));
         return forward(req, res, url.pathname + url.search, false);
       }
       res.writeHead(response.statusCode, response.headers);
@@ -100,7 +118,7 @@ export function createBridge(ctx, { port = 3081, upstreamPort = 3080, role = pro
     const host = req.headers.host ?? '';
     const local = localHosts.includes(host);
     const external = process.env.HARNESS_PUBLIC_HOST;
-    if (!local && (!external || host !== external)) return reply(res, 403, { error: 'Invalid host' });
+    if (!local && !lanHost(host) && (!external || host !== external)) return reply(res, 403, { error: 'Invalid host' });
     if (req.headers.origin && ![ `http://${host}`, `https://${host}` ].includes(req.headers.origin)) {
       return reply(res, 403, { error: 'Invalid origin' });
     }
@@ -119,12 +137,14 @@ export function createBridge(ctx, { port = 3081, upstreamPort = 3080, role = pro
   // DSH currently uses HTTP streaming. Preserve WebSocket upgrades too.
   server.on('upgrade', (req, socket, head) => {
     const host = req.headers.host ?? '';
-    if (![...localHosts, process.env.HARNESS_PUBLIC_HOST].filter(Boolean).includes(host)
-        || (req.headers.origin && ![`http://${host}`, `https://${host}`].includes(req.headers.origin))) {
+    if ((!lanHost(host) && ![...localHosts, process.env.HARNESS_PUBLIC_HOST].filter(Boolean).includes(host))
+        || (req.headers.origin && ![`http://${host}`, `https://${host}`].includes(req.headers.origin))
+        || req.headers['sec-fetch-site'] === 'cross-site'
+        || servicePath(req.url).startsWith('/_dotagents')) {
       socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'); return;
     }
     if (directHosts.includes(host)) req.url = servicePath(req.url);
-    const upstream = http.request({ host: '127.0.0.1', port: upstreamPort, path: req.url, headers: req.headers });
+    const upstream = http.request({ host: '127.0.0.1', port: upstreamPort, path: req.url, headers: upstreamHeaders(req) });
     upstream.on('upgrade', (response, remote, remoteHead) => {
       socket.write(`HTTP/1.1 101 Switching Protocols\r\n${Object.entries(response.headers).map(([k,v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n`);
       if (remoteHead.length) socket.write(remoteHead);

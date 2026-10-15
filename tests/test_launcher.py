@@ -39,7 +39,7 @@ class LauncherTests(unittest.TestCase):
         for model in config['models'].values():
             self.assertRegex(model['revision'], r'^[0-9a-f]{40}$')
             self.assertRegex(model['weights_revision'], r'^[0-9a-f]{40}$')
-            self.assertEqual(model['context'], 131072)
+            self.assertEqual(model['context'], 262144)
             for artifact in runner.required_artifacts(model):
                 self.assertRegex(artifact['sha256'], r'^[0-9a-f]{64}$')
                 self.assertGreater(artifact['size'], 0)
@@ -90,7 +90,10 @@ class LauncherTests(unittest.TestCase):
             self.assertEqual(args[args.index('--prefill-chunk')+1], '4096')
             self.assertNotIn('--dspark', args)
             self.assertNotIn('--batched-session', args)
-            self.assertEqual(args[args.index('--kv-cache-cold-max-tokens')+1], '131072')
+            self.assertEqual(args[args.index('--ctx')+1], '262144')
+            self.assertEqual(args[args.index('--kv-cache-cold-max-tokens')+1], '262144')
+            with self.assertRaises(ValueError):
+                runner.server_args('deepseek', model, {'LLM_CTX': '262145'})
             self.assertEqual(args[args.index('--kv-cache-boundary-align-tokens')+1], '256')
             self.assertIn('--kv-cache-reject-different-quant', args)
             cache = Path(args[args.index('--kv-disk-dir')+1])
@@ -102,10 +105,10 @@ class LauncherTests(unittest.TestCase):
                 runner.server_args('deepseek', model, {})
 
     def test_context_and_port_bounds(self):
-        for value in ['0', '1', '131073', '-1', 'bad']:
+        for value in ['0', '1', '262145', '-1', 'bad']:
             with self.assertRaises(ValueError):
-                runner.integer_setting({'LLM_CTX':value}, 'LLM_CTX', 131072, 2, 131072)
-        self.assertEqual(runner.integer_setting({}, 'LLM_CTX', 131072, 2, 131072), 131072)
+                runner.integer_setting({'LLM_CTX':value}, 'LLM_CTX', 262144, 2, 262144)
+        self.assertEqual(runner.integer_setting({}, 'LLM_CTX', 262144, 2, 262144), 262144)
 
     def test_existing_listener_is_not_stopped(self):
         with patch.object(socket.socket, 'connect_ex', return_value=0), \

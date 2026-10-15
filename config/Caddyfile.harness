@@ -52,7 +52,10 @@ import /etc/caddy/remote.d/*.caddy
 	route {
 		@health path /health
 		respond @health "ok" 200
-		@foreign not host localhost 127.0.0.1
+		# The browser entry never exposes the dashboard control API.
+		@management path /_dotagents /_dotagents/* /chat/_dotagents /chat/_dotagents/* /agent/_dotagents /agent/_dotagents/*
+		respond @management "Forbidden" 403
+		@foreign expression `!({http.request.host} in ["localhost", "127.0.0.1"] || ("{$DOTAGENTS_LAN_BROWSER:false}" == "true" && {http.request.host}.matches('^(10[.][0-9]+[.][0-9]+[.][0-9]+|192[.]168[.][0-9]+[.][0-9]+|172[.](1[6-9]|2[0-9]|3[01])[.][0-9]+[.][0-9]+)$')))`
 		respond @foreign "Forbidden" 403
 		@foreignOrigin expression `{http.request.header.Origin} != "" && {http.request.header.Origin} != ("http://" + {http.request.hostport})`
 		respond @foreignOrigin "Forbidden" 403

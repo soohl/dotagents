@@ -31,6 +31,8 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(os.environ['COMPOSE_FILE'], 'config/compose.harness.yaml')
             self.assertEqual(os.environ['COMPOSE_PROFILES'], '')
             self.assertEqual(os.environ['COMPOSE_PROJECT_NAME'], 'dotagents')
+            self.assertEqual(os.environ['DOTAGENTS_BROWSER_BIND'], '127.0.0.1')
+            self.assertEqual(os.environ['DOTAGENTS_LAN_BROWSER'], 'false')
 
     def test_optional_services_are_selected_only_in_yaml(self):
         self.config['applications'].update(images=True, remote_browser=True)
@@ -41,6 +43,17 @@ class ConfigurationTests(unittest.TestCase):
                              ['config/compose.harness.yaml', 'config/compose.harness-remote.yaml',
                               'config/compose.images.yaml'])
 
+    def test_lan_browser_only_changes_the_browser_listener(self):
+        for enabled in (True, False):
+            self.config['applications']['lan_browser'] = enabled
+            self.write(self.config)
+            with self.subTest(enabled=enabled), patch.dict(os.environ):
+                runtime_config.activate(self.root)
+                self.assertEqual(os.environ['DOTAGENTS_BROWSER_BIND'],
+                                 '0.0.0.0' if enabled else '127.0.0.1')
+                self.assertEqual(os.environ['DOTAGENTS_LAN_BROWSER'], str(enabled).lower())
+                self.assertEqual(runtime_config.gateway_port(self.root), 8888)
+
     def test_invalid_switches_models_and_typographical_errors_are_rejected(self):
         bad = []
         for key, value in [('gateway_port', True), ('gateway_port', -1), ('gateway_port', 65536), ('gateway_port', 8100)]:
@@ -50,6 +63,9 @@ class ConfigurationTests(unittest.TestCase):
         for section, key, value in [('applications', 'images', 'false'),
                                     ('models', 'enabled', ['host', 'host']),
                                     ('models', 'default', 'missing'),
+                                    ('models', 'max_context_tokens', True),
+                                    ('models', 'max_context_tokens', 262145),
+                                    ('models', 'max_context_tokens', 0),
                                     ('network', 'gateway_prt', 8888)]:
             config = copy.deepcopy(self.config)
             config[section][key] = value
@@ -68,6 +84,18 @@ class ConfigurationTests(unittest.TestCase):
         result = runtime_config.model_profiles(self.root)
         self.assertEqual(result['default_model'], 'host')
         self.assertEqual(result['enabled_models'], ['host'])
+        self.assertEqual(json.loads(path.read_text()), pins)
+
+    def test_context_limit_caps_each_model_without_inflating_smaller_models(self):
+        self.config['models']['max_context_tokens'] = 65536
+        self.write(self.config)
+        (self.root / 'config').mkdir()
+        pins = {'models': {'host': {'context': 262144}, 'smaller': {'context': 32768}}}
+        path = self.root / 'config/models.json'
+        path.write_text(json.dumps(pins))
+        result = runtime_config.model_profiles(self.root)
+        self.assertEqual(result['models']['host']['context'], 65536)
+        self.assertEqual(result['models']['smaller']['context'], 32768)
         self.assertEqual(json.loads(path.read_text()), pins)
 
     def test_calendar_defaults_off_and_uses_yaml_not_environment(self):

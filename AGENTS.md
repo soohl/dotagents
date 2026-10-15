@@ -10,8 +10,9 @@
 - Keep one dashboard with service status and job output. Use functional labels.
 - Run applications in Docker and local inference with native Metal. Applications
   own their data. Do not add a central application database.
-- Keep local browser and management listeners on loopback. Protect remote
-  browser access with the shared password and FIDO2 security key login.
+- Expose only the browser gateway to the trusted LAN. Keep inference and
+  management listeners on loopback. Protect internet browser access with the
+  shared password and FIDO2 security key login.
 - Give Chat and Agent separate `sessions/chat` and `sessions/agent` directories.
   Mount only each application's own workspace. Reject symlink escapes.
 - Load one large worker per device. Never stop a process owned by another server.

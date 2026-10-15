@@ -17,12 +17,15 @@ test('calendar connection is opt-in, idempotent, and restricted to Chat', () => 
       serviceProfile(structuredClone(rows), role));
   }
 });
-test('Chat gets a fresh browser-local clock at every model step', () => {
-  const rows = serviceProfile([], 'chat');
-  assert.equal(rows[0].insert[0].name, '@deepseek-ai/dsh-time-context');
-  assert.equal(rows[0].insert[0].config.refreshIntervalMs, 0);
-  assert.deepEqual(serviceProfile(rows, 'chat'), rows);
-  assert.deepEqual(serviceProfile(rows, 'agent'), []);
+test('saved time injection is removed without losing neighboring plugins', () => {
+  const clock = { id: 'dotagents-time-context', name: '@deepseek-ai/dsh-time-context' };
+  for (const role of ['chat', 'agent']) {
+    const rows = [clock, { insert: [clock] }, { insert: [clock, { id: 'keep' }] }];
+    const result = serviceProfile(structuredClone(rows), role);
+    assert.deepEqual(result, [{ insert: [{ id: 'keep' }] }]);
+    assert.deepEqual(serviceProfile(result, role), result);
+    assert.deepEqual(serviceProfile([], role), []);
+  }
 });
 const policy = JSON.parse(await readFile(new URL('../config/harness-policy.json', import.meta.url)));
 test('the project rename updates integrations without changing saved model selections', () => {
@@ -85,7 +88,7 @@ test('saved policy updates are idempotent and preserve identity, model routes an
     assert.equal(children.filter(p => p.id === 'compaction-tool-result-pruner').length, 1);
     const c = children.find(p => p.id === 'compaction-basic').config;
     assert.equal(Math.floor(Math.min(policy.hostContextWindow * c.thresholdRatio,
-      policy.hostContextWindow - policy.hostMaxTokens - c.headroomTokens)), 104857);
+      policy.hostContextWindow - policy.hostMaxTokens - c.headroomTokens)), 209715);
     assert.equal(c.maxTokens, 4096);
     assert.equal(preset.config.plugins[1].config.fetchMaxOutputChars, 16000);
   }
@@ -120,4 +123,19 @@ test('Agent browser retains full large output in a spill and keeps advanced acti
   assert.ok(result.content[0].text.length <= policy.browserMaxOutputChars);
   assert.match(result.content[0].text, /Full output:/);
   assert.equal(result.structuredContent, undefined);
+});
+
+test('Chat receives read-only files and current research guidance on saved profiles', () => {
+  const rows = [{ id: 'preset-chat', config: { plugins: [
+    { id: 'persona', config: { prefix: 'old', complete: true } },
+    { id: 'tool-fs', config: { readOnly: false } },
+  ] } }];
+  applyPolicy(rows, policy);
+  const plugins = rows[0].config.plugins;
+  assert.equal(plugins.find(p => p.id === 'tool-fs').config.readOnly, true);
+  assert.ok(plugins.some(p => p.id === 'tool-fs-search'));
+  assert.equal(plugins.find(p => p.id === 'dotagents-clock').name, '/app/runtime/local-clock.mjs');
+  assert.equal(plugins[0].config.prefix, policy.chatInstructions);
+  assert.equal(plugins[0].config.complete, true);
+  assert.deepEqual(applyPolicy(structuredClone(rows), policy), rows);
 });

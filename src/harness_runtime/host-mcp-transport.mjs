@@ -2,7 +2,7 @@
 import net from 'node:net';
 import { readFile } from 'node:fs/promises';
 import { Transform } from 'node:stream';
-import { harnessSchema } from './things-schema.mjs';
+import { harnessSchema } from './mcp-schema.mjs';
 
 function lines(transform) {
   let pending = '';

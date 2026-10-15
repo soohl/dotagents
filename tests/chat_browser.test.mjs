@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { allowedTools, filterResult, validateCall } from '../src/harness_runtime/chat-browser.mjs';
 
-test('Chat exposes only browser navigation and text snapshots',()=>{
+test('Chat exposes research interaction without executable tools',()=>{
   const result=filterResult('tools/list',{tools:[...allowedTools,'browser_run_code','browser_evaluate','browser_file_upload'].map(name=>({name,inputSchema:{}}))});
   assert.deepEqual(result.tools.map(t=>t.name),[...allowedTools]);
   assert.deepEqual(filterResult('initialize',{capabilities:{tools:{},resources:{},prompts:{}}}).capabilities,{tools:{}});
@@ -35,4 +35,21 @@ test('search keeps the credential in a header and returns bounded source links',
   assert.deepEqual(result,{sources:[{url:'https://example.com',title:'Example',snippet:'Snippet'}],truncated:true});
   await assert.rejects(searchBrave({query:'example'},undefined,''),/not configured/);
   await assert.rejects(searchBrave({query:'example'},undefined,'test-only',async()=>({ok:false,status:429})),/HTTP 429/);
+});
+
+test('Chat validates research interactions and rejects path and code parameters', () => {
+  for (const [name, args] of [
+    ['browser_click', {target:'e12'}], ['browser_type', {target:'f1e2',text:'search',submit:true}],
+    ['browser_select_option', {target:'e3',values:['market-cap']}],
+    ['browser_press_key', {key:'PageDown'}], ['browser_wait_for', {text:'Results'}],
+    ['browser_tabs', {action:'new',url:'https://example.org'}],
+  ]) assert.deepEqual(validateCall(name,args),args);
+  for (const [name,args] of [
+    ['browser_click', {target:'page.evaluate("code")'}], ['browser_click', {target:'e1',filename:'/tmp/x'}],
+    ['browser_type', {target:'e2',text:'x',submit:'true'}],
+    ['browser_select_option', {target:'e3',values:[1]}],
+    ['browser_tabs', {action:'new',url:'file:///etc/passwd'}], ['browser_tabs', {action:'select'}],
+    ['browser_tabs', {action:'list',url:'https://example.org'}],
+    ['browser_wait_for', {time:31}], ['browser_wait_for', {}],
+  ]) assert.throws(() => validateCall(name,args));
 });

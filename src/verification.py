@@ -53,7 +53,8 @@ def dependencies(root):
 
 
 def applications(root):
-    if load(root)['applications']['images'] and not os.environ.get('DOTAGENTS_REMOTE_IMAGE_URL'):
+    options = load(root)['applications']
+    if options['images'] and not os.environ.get('DOTAGENTS_REMOTE_IMAGE_URL'):
         raise ValueError('No Image API was discovered. Start an Image gateway or disable applications.images in config.yaml.')
     environment = root / '.env'
     if not environment.is_file():
@@ -74,7 +75,11 @@ def applications(root):
         else:
             images.add(service['image'])
         for port in service.get('ports', []):
-            if port.get('host_ip') not in ('127.0.0.1', '::1'):
+            lan_gateway = (options.get('lan_browser', False) and name in ('caddy', 'tailscale')
+                           and port.get('host_ip') == '0.0.0.0'
+                           and str(port.get('published')) == '3000'
+                           and port.get('target') == 8080 and port.get('protocol', 'tcp') == 'tcp')
+            if port.get('host_ip') not in ('127.0.0.1', '::1') and not lan_gateway:
                 problems.append(name + ': published ports must use loopback')
         for volume in service.get('volumes', []):
             if volume.get('type') == 'bind' and not Path(volume['source']).exists():

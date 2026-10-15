@@ -23,6 +23,21 @@ export function applyPolicy(rows, policy) {
       if (!['preset-chat', 'preset-agent'].includes(row.id)) continue;
       const plugins = row.config?.plugins;
       if (!Array.isArray(plugins)) throw new Error('Managed preset has no plugin list.');
+      if (row.id === 'preset-chat') {
+        if (!plugins.some(entry => entry.id === 'dotagents-clock')) {
+          plugins.push({ id: 'dotagents-clock', name: '/app/runtime/local-clock.mjs' });
+        }
+        for (const [id, config] of [
+          ['tool-fs', { readOnly: true }],
+          ['tool-fs-search', { sampleOverCapGlobResults: false }],
+        ]) {
+          const existing = plugins.find(entry => entry.id === id);
+          if (existing) existing.config = { ...existing.config, ...config };
+          else plugins.push(plugin(id, config));
+        }
+        const persona = plugins.find(entry => entry.id === 'persona');
+        if (persona) persona.config = { ...persona.config, prefix: policy.chatInstructions };
+      }
       for (const entry of plugins) {
         if (entry.id === 'compaction') {
           entry.isolate = { ...entry.isolate, toolResultPruner: true };

@@ -6,8 +6,10 @@ import { createBridge } from '../src/harness_runtime/bridge.mjs';
 
 test('browser bootstrap and local management have separate admission rules', async () => {
   const calls = [];
+  const forwarded = [];
   const events = {};
   const upstream = http.createServer((req, res) => {
+    forwarded.push(req.headers);
     if (req.url === '/?token=test-only') {
       res.writeHead(303, { Location: './', 'Set-Cookie': 'dsh-auth-test=fixture; HttpOnly' });
     } else res.writeHead(401);
@@ -25,6 +27,8 @@ test('browser bootstrap and local management have separate admission rules', asy
     },
   };
   const previous = process.env.HARNESS_PUBLIC_HOST;
+  const previousLan = process.env.DOTAGENTS_LAN_BROWSER;
+  process.env.DOTAGENTS_LAN_BROWSER = 'true';
   process.env.HARNESS_PUBLIC_HOST = 'remote.example';
   const server = createBridge(ctx, { port: 0, upstreamPort: upstream.address().port });
   await once(server, 'listening');
@@ -52,6 +56,21 @@ test('browser bootstrap and local management have separate admission rules', asy
       Host: 'localhost:3003', Origin: 'http://localhost:3000' })).status, 403);
     assert.equal((await request('/api/session')).status, 401);
     assert.equal((await request('/_dotagents/status', { Host: 'remote.example' })).status, 403);
+    for (const host of ['192.168.10.20:3000', '10.2.3.4:3000', '172.16.1.2:3000']) {
+      assert.equal((await request('/', { Host: host, Origin: `http://${host}` })).status, 303);
+      assert.equal(forwarded.at(-1).host, '127.0.0.1:3000');
+      assert.equal(forwarded.at(-1).origin, 'http://127.0.0.1:3000');
+      assert.equal((await request('/_dotagents/status', { Host: host })).status, 403);
+      assert.equal((await request('/_dotagents/task', { Host: host }, { task: 'x' })).status, 403);
+      assert.equal((await request('/', { Host: host, Origin: 'http://foreign.invalid' })).status, 403);
+    }
+    for (const host of ['192.168.10.20:3002', '172.32.1.2:3000', '8.8.8.8:3000',
+                        '192.168.999.1:3000', '192.168.1.2.evil.invalid:3000']) {
+      assert.equal((await request('/', { Host: host })).status, 403);
+    }
+    process.env.DOTAGENTS_LAN_BROWSER = 'false';
+    assert.equal((await request('/', { Host: '192.168.10.20:3000' })).status, 403);
+    process.env.DOTAGENTS_LAN_BROWSER = 'true';
     assert.equal((await request('/_dotagents/task', { Origin: 'https://evil.example' }, { task: 'x' })).status, 403);
     assert.equal((await request('/_dotagents/task', { 'Sec-Fetch-Site': 'cross-site' }, { task: 'x' })).status, 403);
     assert.equal((await request('/_dotagents/task', {}, { task: '' })).status, 400);
@@ -66,6 +85,8 @@ test('browser bootstrap and local management have separate admission rules', asy
     upstream.closeAllConnections(); upstream.close();
     if (previous === undefined) delete process.env.HARNESS_PUBLIC_HOST;
     else process.env.HARNESS_PUBLIC_HOST = previous;
+    if (previousLan === undefined) delete process.env.DOTAGENTS_LAN_BROWSER;
+    else process.env.DOTAGENTS_LAN_BROWSER = previousLan;
   }
 });
 

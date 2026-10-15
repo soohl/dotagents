@@ -87,3 +87,20 @@ test('host catalog supplies names and vision without preconfigured model IDs', a
   assert.equal(models[0].maxTokens, 16384);
   assert.deepEqual(models[0].input, ['text', 'image']);
 });
+
+test('context limits cap remote models at 256K while retaining smaller or unknown capacities', async () => {
+  for (const [advertised, configured, expected] of [
+    [1048576, undefined, 262144], [65536, undefined, 65536],
+    [undefined, undefined, 131072], [262144, 65536, 65536],
+  ]) {
+    const models = await readCatalog({baseURL:'http://fixture/v1',maxContextWindow:configured}, async () =>
+      new Response(JSON.stringify({data:[{id:'fixture',context_window:advertised}]})));
+    assert.equal(models[0].contextWindow, expected);
+    assert.ok(models[0].maxTokens <= expected);
+  }
+  for (const field of ['context_length', 'max_context_window', 'max_model_len']) {
+    const models = await readCatalog({baseURL:'http://fixture/v1'}, async () =>
+      new Response(JSON.stringify({data:[{id:'smaller',[field]:65536}]})));
+    assert.equal(models[0].contextWindow, 65536);
+  }
+});

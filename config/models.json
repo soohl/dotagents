@@ -13,7 +13,7 @@
       "revision": "0aaea5a238fb41a35106a551e73c8409dfb751ac",
       "repository": "antirez/deepseek-v4-gguf",
       "weights_revision": "e7f04037032990db0346398d249baf9fb9df1ccc",
-      "context": 131072,
+      "context": 262144,
       "prefill_chunk": 4096,
       "cache_space_mb": 32768,
       "cache_alignment": 256,
@@ -39,7 +39,7 @@
       "revision": "4d4f5a280bc1739ba2cf39c1cee44fd5cc89cb40",
       "repository": "Jundot/Qwen3.8-Flash-Next-oQ4e-mtp",
       "weights_revision": "2615fc0e976e65c2f3b55daca3a948f1cdc5b9f8",
-      "context": 131072,
+      "context": 262144,
       "model_directory": "models/Qwen3.8-Flash-Next-oMLX/Qwen3.8-Flash-Next-oQ4e-mtp",
       "vision": true,
       "artifacts": [
